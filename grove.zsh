@@ -773,6 +773,7 @@ _grove_fzf_select() {
         --color='hl:magenta:underline,hl+:magenta:underline' \
         --no-info \
         --no-sort \
+        --nth=1 \
         --bind='tab:accept'
 }
 
