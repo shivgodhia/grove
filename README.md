@@ -6,8 +6,6 @@ A Zsh function that manages multi-repo [git worktrees](https://git-scm.com/docs/
 
 You're working on features that span multiple repos — a frontend and backend, a server and admin panel. You need worktrees in each repo with the same branch name, set up together, accessible from one tmux session. Grove does this in one command.
 
-For single-repo worktree management, see [wt (worktree-manager)](https://github.com/shivgodhia/worktree-manager).
-
 ## How it works
 
 You define workspaces that group projects together. `grove <workspace> <name>` is all you need:
@@ -46,7 +44,7 @@ asking me one question at a time:
 
 1. Ask where my "projects directory" is — explain this is a single parent folder where all my git clones
    live for grove, and that workspaces get created in a `workspaces/` subdirectory inside it. This MUST be
-   different from any WT_PROJECTS_DIR used by the wt tool. Suggest ~/grove-projects as a default.
+   Suggest ~/grove-projects as a default.
 2. Ask what branch prefix I want (default: $USER). Explain this is used for naming new branches as
    <prefix>/branch-name.
 3. Iteratively ask me for git repos to clone into the projects directory. For each one:
@@ -106,7 +104,7 @@ Or do it manually:
 
 4. Restart your terminal or run `source ~/.zshrc`.
 
-**Important**: `GROVE_PROJECTS_DIR` must NOT overlap with `WT_PROJECTS_DIR` if you also use `wt`. Both tools use `git worktree add` from main clones, and they can't share repos. Default: `~/grove-projects`.
+Default: `~/grove-projects`.
 
 ### Configuration
 
@@ -243,10 +241,6 @@ tmux source-file ~/.config/tmux/tmux.conf
 **Mouse support** lets you scroll through output, click to switch panes, and drag to resize them — it just works so much better.
 
 **Tab titles** — `grove` creates tmux sessions named `grove/<workspace>/<name>`, and `set-titles` pushes that to your terminal as the tab name. Instead of a sea of identical "zsh" tabs, you see exactly which workspace each tab is for. Ghostty picks up the tmux title automatically — no extra config needed. In iTerm2, you'll also need to enable **Profiles → General → Title → "Applications in terminal may change the title"**.
-
-## Coexistence with wt
-
-Both `grove` and `wt` can be sourced simultaneously — they use different command names. However, both bind `^I` (Tab) for fzf completion, and the last one sourced wins. If you use both, source them in order of preference (last = gets Tab).
 
 ## Requirements
 

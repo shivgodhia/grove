@@ -3,7 +3,7 @@
 # Copy this file to grove.local.zsh and edit it.
 # That file is gitignored, so your settings won't conflict with updates.
 
-# Where your git projects live (MUST be different from WT_PROJECTS_DIR if using both tools)
+# Where your git projects live
 GROVE_PROJECTS_DIR="$HOME/grove-projects"
 
 # Base branch for new worktrees (default: origin/main)

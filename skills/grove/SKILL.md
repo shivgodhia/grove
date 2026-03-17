@@ -222,6 +222,3 @@ When checking if a branch has been merged, `git merge-base --is-ancestor` will N
 
 The Bash tool's working directory persists across calls. Always cd out of a workspace in a **separate** Bash call before deleting it.
 
-### Both wt and grove
-
-If the user has both `wt` and `grove` sourced, both bind `^I` for tab completion. Only source one at a time, or the last one sourced wins tab completion.
