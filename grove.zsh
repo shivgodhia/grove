@@ -355,7 +355,7 @@ HELP
                 projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null) || continue
                 project_list=(${(s: :)projects})
 
-                echo "\n$ws_name (${(j:, :)project_list})"
+                echo "\n[$ws_name] (${(j:, :)project_list})"
 
                 for instance_dir in "$ws_dir"/*(N/); do
                     instance_name=$(basename "$instance_dir")
@@ -378,9 +378,9 @@ HELP
                     done
 
                     if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  * $instance_name  $branch  [tmux: $session_name]"
+                        echo "  • $instance_name  $branch  [tmux: $session_name]"
                     else
-                        echo "  * $instance_name  $branch"
+                        echo "  • $instance_name  $branch"
                     fi
 
                     # Show per-project branches only if they diverge
@@ -402,7 +402,7 @@ HELP
             for ws_name in "${single_ws[@]}"; do
                 ws_dir="$workspaces_dir/$ws_name"
 
-                echo "\n$ws_name"
+                echo "\n[$ws_name]"
 
                 for instance_dir in "$ws_dir"/*(N/); do
                     instance_name=$(basename "$instance_dir")
@@ -420,9 +420,9 @@ HELP
                     done
 
                     if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  * $instance_name  $branch  [tmux: $session_name]"
+                        echo "  • $instance_name  $branch  [tmux: $session_name]"
                     else
-                        echo "  * $instance_name  $branch"
+                        echo "  • $instance_name  $branch"
                     fi
                 done
             done
