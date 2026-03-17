@@ -38,7 +38,7 @@ For each project in the workspace:
 Copy this prompt into Claude Code (or your AI tool of choice):
 
 ```
-Clone <repo-url> to ~/.zsh/grove and add `source ~/.zsh/grove/grove.zsh`
+Clone [grove](https://github.com/shivgodhia/grove) to ~/.zsh/grove and add `source ~/.zsh/grove/grove.zsh`
 to my .zshrc. Then walk me through setting up ~/.zsh/grove/grove.local.zsh step by step,
 asking me one question at a time:
 
