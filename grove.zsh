@@ -320,35 +320,58 @@ HELP
         return 0
     elif [[ "$1" == "--list" ]]; then
         local -a all_ws=(${(s: :)$(_grove_list_all_workspaces)})
-        local ws_dir projects instance_name session_name branch project has_instance _b
+        local ws_dir projects instance_name session_name branch project _b
         local -a project_list multi_ws single_ws
         local -a divergent_branches
 
-        # Separate into multi-repo and single-repo workspaces (only those with instances on disk)
-        if [[ -d "$workspaces_dir" ]]; then
-            for ws_name in "${all_ws[@]}"; do
-                ws_dir="$workspaces_dir/$ws_name"
-                [[ -d "$ws_dir" ]] || continue
-                # Check if there are any instance dirs
-                has_instance=0
-                for instance_dir in "$ws_dir"/*(N/); do
-                    has_instance=1
-                    break
-                done
-                (( has_instance )) || continue
+        # Separate into multi-repo and single-repo workspaces
+        for ws_name in "${all_ws[@]}"; do
+            projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null) || continue
+            project_list=(${(s: :)projects})
+            if (( ${#project_list} > 1 )); then
+                multi_ws+=("$ws_name")
+            else
+                single_ws+=("$ws_name")
+            fi
+        done
 
-                projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null) || continue
-                project_list=(${(s: :)projects})
-                if (( ${#project_list} > 1 )); then
-                    multi_ws+=("$ws_name")
-                else
-                    single_ws+=("$ws_name")
-                fi
+        # ── Single-Repo Workspaces ──
+        if (( ${#single_ws} > 0 )); then
+            echo "=== Single-Repo Workspaces ==="
+            for ws_name in "${single_ws[@]}"; do
+                ws_dir="$workspaces_dir/$ws_name"
+
+                echo "\n[$ws_name]"
+
+                for instance_dir in "$ws_dir"/*(N/); do
+                    instance_name=$(basename "$instance_dir")
+                    session_name=$(_grove_tmux_session_name "$ws_name" "$instance_name")
+
+                    # Get branch from the single project worktree
+                    branch=""
+                    for project_dir in "$instance_dir"/*(N/); do
+                        project=$(basename "$project_dir")
+                        [[ "$project" == .* ]] && continue
+                        if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
+                            branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+                            break
+                        fi
+                    done
+
+                    if tmux has-session -t "$session_name" 2>/dev/null; then
+                        echo "  • $instance_name  $branch  [tmux: $session_name]"
+                    else
+                        echo "  • $instance_name  $branch"
+                    fi
+                done
             done
         fi
 
         # ── Multi-Repo Workspaces ──
         if (( ${#multi_ws} > 0 )); then
+            if (( ${#single_ws} > 0 )); then
+                echo ""
+            fi
             echo "=== Multi-Repo Workspaces ==="
             for ws_name in "${multi_ws[@]}"; do
                 ws_dir="$workspaces_dir/$ws_name"
@@ -388,41 +411,6 @@ HELP
                         for entry in "${divergent_branches[@]}"; do
                             echo "    ^ ${entry%%:*} on ${entry#*:}"
                         done
-                    fi
-                done
-            done
-        fi
-
-        # ── Single-Repo Workspaces ──
-        if (( ${#single_ws} > 0 )); then
-            if (( ${#multi_ws} > 0 )); then
-                echo ""
-            fi
-            echo "=== Single-Repo Workspaces ==="
-            for ws_name in "${single_ws[@]}"; do
-                ws_dir="$workspaces_dir/$ws_name"
-
-                echo "\n[$ws_name]"
-
-                for instance_dir in "$ws_dir"/*(N/); do
-                    instance_name=$(basename "$instance_dir")
-                    session_name=$(_grove_tmux_session_name "$ws_name" "$instance_name")
-
-                    # Get branch from the single project worktree
-                    branch=""
-                    for project_dir in "$instance_dir"/*(N/); do
-                        project=$(basename "$project_dir")
-                        [[ "$project" == .* ]] && continue
-                        if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
-                            branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
-                            break
-                        fi
-                    done
-
-                    if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  • $instance_name  $branch  [tmux: $session_name]"
-                    else
-                        echo "  • $instance_name  $branch"
                     fi
                 done
             done
