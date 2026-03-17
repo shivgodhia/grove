@@ -228,20 +228,20 @@ _grove_list_all_workspaces() {
 }
 
 # ─── Main function ───────────────────────────────────────────────────────────
-grove() {
+gv() {
     local projects_dir="$GROVE_PROJECTS_DIR"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
 
     # Handle special flags
     if [[ "$1" == "--help" ]]; then
         cat <<'HELP'
-grove - Workspace Manager with Multi-Repo Worktree Support
+Grove - Workspace Manager with Multi-Repo Worktree Support
 
 QUICK START
-  grove my-app my-feature           Single-project workspace
-  grove fullstack my-feature        Multi-project workspace (if configured)
+  gv my-app my-feature           Single-project workspace
+  gv fullstack my-feature        Multi-project workspace (if configured)
   ... do your work ...
-  grove --rm my-app my-feature      Delete workspace when done
+  gv --rm my-app my-feature      Delete workspace when done
 
 HOW IT WORKS
   A workspace groups one or more projects. Each project gets a git worktree
@@ -252,7 +252,7 @@ HOW IT WORKS
   defined in your config (e.g. grove_workspaces[fullstack]="frontend backend").
 
 CREATING A WORKSPACE
-  grove <workspace> <name>
+  gv <workspace> <name>
 
   The first argument is a workspace name (either an explicit definition or
   a project directory name). The second is a name for your instance — usually
@@ -271,31 +271,31 @@ CREATING A WORKSPACE
   are symlinked into the workspace root so AI agents can see all project configs.
 
 FINDING AND RETURNING TO A WORKSPACE
-  grove <workspace> <name>
+  gv <workspace> <name>
 
   Same command — if the workspace already exists, it switches to the tmux session.
   Use tab completion to see existing instances.
 
 DELETING A WORKSPACE
-  grove --rm <workspace> <name>
-  grove --rm --force <workspace> <name>
+  gv --rm <workspace> <name>
+  gv --rm --force <workspace> <name>
 
   Removes all worktrees, deletes local branches, kills the tmux session.
   Add --force for uncommitted changes.
 
-  grove --kms [--force]
+  gv --kms [--force]
 
   Remove the current workspace (run from inside a workspace directory).
 
 RUNNING A ONE-OFF COMMAND
-  grove <workspace> <name> <command>
+  gv <workspace> <name> <command>
 
   Runs a command in the workspace directory without tmux.
 
 OTHER COMMANDS
-  grove --list     List all workspaces and their instances
-  grove --home     cd to your projects directory
-  grove --help     Show this help
+  gv --list     List all workspaces and their instances
+  gv --home     cd to your projects directory
+  gv --help     Show this help
 
 CONFIGURATION
   Override defaults in grove.local.zsh (gitignored):
@@ -451,7 +451,7 @@ HELP
             return 1
         fi
         echo "Removing workspace instance: $workspace/$instance"
-        grove --rm $force_flag "$workspace" "$instance"
+        gv --rm $force_flag "$workspace" "$instance"
         return $?
     elif [[ "$1" == "--rm" ]]; then
         shift
@@ -463,7 +463,7 @@ HELP
         local workspace="$1"
         local instance="$2"
         if [[ -z "$workspace" || -z "$instance" ]]; then
-            echo "Usage: grove --rm [--force] <workspace> <name>"
+            echo "Usage: gv --rm [--force] <workspace> <name>"
             return 1
         fi
         # Sanitize instance name for directory (replace / with -)
@@ -513,13 +513,13 @@ HELP
     local command=("$@")
 
     if [[ -z "$workspace" || -z "$name" ]]; then
-        echo "Usage: grove <workspace> <name>              # attach to tmux session (creates workspace if needed)"
-        echo "       grove <workspace> <name> <command>    # run command in workspace (no tmux)"
-        echo "       grove --list"
-        echo "       grove --rm [--force] <workspace> <name>"
-        echo "       grove --kms [--force]                  # remove current workspace (from inside it)"
-        echo "       grove --home"
-        echo "       grove --help"
+        echo "Usage: gv <workspace> <name>              # attach to tmux session (creates workspace if needed)"
+        echo "       gv <workspace> <name> <command>    # run command in workspace (no tmux)"
+        echo "       gv --list"
+        echo "       gv --rm [--force] <workspace> <name>"
+        echo "       gv --kms [--force]                  # remove current workspace (from inside it)"
+        echo "       gv --home"
+        echo "       gv --help"
         return 1
     fi
 
@@ -783,8 +783,8 @@ _grove_fzf_complete_widget() {
     local tokens=(${(z)LBUFFER})
     local cmd="${tokens[1]}"
 
-    # Only intercept for the grove command
-    if [[ "$cmd" != "grove" ]]; then
+    # Only intercept for the gv command
+    if [[ "$cmd" != "gv" ]]; then
         zle "${_grove_orig_tab_widget:-expand-or-complete}"
         return
     fi
@@ -977,7 +977,7 @@ if _grove_fzf_available; then
     # Stub _grove_comp so any cached compdef doesn't error when standard
     # completion falls through (e.g. position 4+ for command args)
     _grove_comp() { return 0; }
-    compdef _grove_comp grove
+    compdef _grove_comp gv
 
     zle -N _grove_fzf_complete_widget
     bindkey '^I' _grove_fzf_complete_widget
@@ -1071,5 +1071,5 @@ else
                 ;;
         esac
     }
-    compdef _grove_comp grove
+    compdef _grove_comp gv
 fi
