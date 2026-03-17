@@ -4,7 +4,7 @@
 # That file is gitignored, so your settings won't conflict with updates.
 
 # Where your git projects live
-GROVE_PROJECTS_DIR="$HOME/projects"
+GROVE_PROJECTS_DIR="$HOME/groveyard"
 
 # Base branch for new worktrees (default: origin/main)
 # GROVE_BASE_BRANCH="origin/main"

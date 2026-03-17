@@ -30,7 +30,7 @@
 
 # ─── Configuration (defaults) ────────────────────────────────────────────────
 # Override any of these in grove.local.zsh (see below).
-: ${GROVE_PROJECTS_DIR:="$HOME/projects"}
+: ${GROVE_PROJECTS_DIR:="$HOME/groveyard"}
 : ${GROVE_BASE_BRANCH:="origin/main"}
 : ${GROVE_BRANCH_PREFIX:="$USER"}
 
@@ -299,7 +299,7 @@ OTHER COMMANDS
 
 CONFIGURATION
   Override defaults in grove.local.zsh (gitignored):
-    GROVE_PROJECTS_DIR         Where git repos live (default: ~/projects)
+    GROVE_PROJECTS_DIR         Where git repos live (default: ~/groveyard)
     GROVE_BASE_BRANCH          Base branch for new worktrees (default: origin/main)
     GROVE_BRANCH_PREFIX        Prefix for new branches (default: your username)
     GROVE_WORKSPACES_DIR       Where workspaces are created (default: $GROVE_PROJECTS_DIR/workspaces)
