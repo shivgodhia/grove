@@ -44,7 +44,7 @@ asking me one question at a time:
 
 1. Ask where my "projects directory" is — explain this is a single parent folder where all my git clones
    live for grove, and that workspaces get created in a `workspaces/` subdirectory inside it. This MUST be
-   Suggest ~/grove-projects as a default.
+   Suggest ~/projects as a default.
 2. Ask what branch prefix I want (default: $USER). Explain this is used for naming new branches as
    <prefix>/branch-name.
 3. Iteratively ask me for git repos to clone into the projects directory. For each one:
@@ -104,7 +104,7 @@ Or do it manually:
 
 4. Restart your terminal or run `source ~/.zshrc`.
 
-Default: `~/grove-projects`.
+Default: `~/projects`.
 
 ### Configuration
 
@@ -112,7 +112,7 @@ Edit `grove.local.zsh`:
 
 #### Directories
 
-- `GROVE_PROJECTS_DIR` — where your git repos live (default: `~/grove-projects`)
+- `GROVE_PROJECTS_DIR` — where your git repos live (default: `~/projects`)
 - `GROVE_WORKSPACES_DIR` — where workspaces are created (default: `$GROVE_PROJECTS_DIR/workspaces`)
 - `GROVE_BASE_BRANCH` — base branch for new worktrees (default: `origin/main`)
 - `GROVE_BRANCH_PREFIX` — prefix for new branch names (default: `$USER`)
@@ -182,7 +182,7 @@ grove --rm fullstack fix-auth
 ## Directory structure
 
 ```
-~/grove-projects/                          # git repos live here
+~/projects/                          # git repos live here
 ├── frontend/                            # main repo checkout
 ├── backend/                             # another repo
 └── workspaces/                          # all workspace instances
