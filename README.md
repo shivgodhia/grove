@@ -17,7 +17,7 @@ For each project in the workspace:
 1. Fetches from origin
 2. If the branch exists on any remote, tracks it where available; creates new branch elsewhere
 3. Creates worktrees for all projects under one workspace directory
-4. For multi-project: symlinks `.claude/skills/` and `.cursor/` from each project into the workspace root
+4. For multi-project: copies `.claude/skills/` (with prefixed names) and symlinks `.cursor/` from each project into the workspace root
 5. Opens a tmux session and runs post-create + post-startup hooks
 
 ## Features
@@ -25,7 +25,7 @@ For each project in the workspace:
 - **Multi-repo workspaces**: Group projects together — one command creates worktrees across all of them
 - **Smart branch resolution**: Tracks existing remote branches where they exist, creates new branches elsewhere
 - **Consistent branch naming**: All projects in a workspace get the same branch name
-- **Agent config merging**: `.claude/skills/` and `.cursor/` from each project are symlinked into the workspace root
+- **Agent config merging**: `.claude/skills/` from each project are copied (with rewritten `name:` frontmatter) and `.cursor/` are symlinked into the workspace root
 - **Post-create hooks**: Per-project setup commands (dependency install, codegen)
 - **Post-startup hooks**: Per-workspace commands (launch AI agents, tmux layouts)
 - **tmux session integration**: One session per workspace instance
@@ -188,7 +188,7 @@ grove --rm fullstack fix-auth
 └── workspaces/                          # all workspace instances
     ├── fullstack/                       # multi-project workspace
     │   └── fix-auth/                    # instance
-    │       ├── .claude/skills/          # symlinked from children
+    │       ├── .claude/skills/          # copied from children (names prefixed)
     │       ├── frontend/                # worktree → branch
     │       └── backend/                 # worktree → branch
     └── backend/                         # single-project workspace
