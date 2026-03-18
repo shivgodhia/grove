@@ -8,7 +8,7 @@ You're working on features that span multiple repos — a frontend and backend, 
 
 ## How it works
 
-You define workspaces that group projects together. `grove <workspace> <name>` is all you need:
+You define workspaces that group projects together. `gv <workspace> <name>` is all you need:
 
 1. **Single-project**: Any git repo is automatically a workspace.
 2. **Multi-project**: Define workspace groups in config. `grove fullstack fix-auth` creates worktrees in both `frontend` and `backend`.
@@ -54,7 +54,7 @@ asking me one question at a time:
    - After each clone, ask if I want to add another repo or if I'm done.
 4. Ask if I want to define any multi-project workspaces. Explain the concept: a workspace groups
    multiple repos so they all get worktrees with the same branch name in one command. For example,
-   grove_workspaces[fullstack]="frontend backend" means `grove fullstack fix-auth` creates
+   grove_workspaces[fullstack]="frontend backend" means `gv fullstack fix-auth` creates
    worktrees in both repos. Workspace names must be distinct from project directory names (project
    names are auto-claimed as implicit single-project workspaces). Iteratively ask for workspace
    definitions until done.
@@ -147,36 +147,36 @@ grove_post_startup_commands[fullstack]="claude --dangerously-skip-permissions"
 ## Usage
 
 ```sh
-grove <workspace> <name>                  # create/attach to workspace
-grove <workspace> <name> <command>        # run command in workspace (no tmux)
-grove --list                              # list all workspaces and instances
-grove --rm <workspace> <name>             # remove workspace instance
-grove --rm --force <workspace> <name>     # force remove (uncommitted changes)
-grove --kms [--force]                     # remove current workspace (from inside it)
-grove --home                              # cd to projects directory
-grove --help                              # show usage guide
+gv <workspace> <name>                  # create/attach to workspace
+gv <workspace> <name> <command>        # run command in workspace (no tmux)
+gv --list                              # list all workspaces and instances
+gv --rm <workspace> <name>             # remove workspace instance
+gv --rm --force <workspace> <name>     # force remove (uncommitted changes)
+gv --kms [--force]                     # remove current workspace (from inside it)
+gv --home                              # cd to projects directory
+gv --help                              # show usage guide
 ```
 
 ### Examples
 
 ```sh
 # Single-project workspace (implicit)
-grove backend fix-auth
+gv backend fix-auth
 
 # Multi-project workspace
-grove fullstack fix-auth
+gv fullstack fix-auth
 
 # Check out a teammate's branch across all workspace projects
-grove fullstack someone/fix-bug
+gv fullstack someone/fix-bug
 
 # Run a command in the workspace
-grove fullstack fix-auth git status
+gv fullstack fix-auth git status
 
 # List everything
-grove --list
+gv --list
 
 # Clean up when done
-grove --rm fullstack fix-auth
+gv --rm fullstack fix-auth
 ```
 
 ## Directory structure
@@ -240,7 +240,7 @@ tmux source-file ~/.config/tmux/tmux.conf
 
 **Mouse support** lets you scroll through output, click to switch panes, and drag to resize them — it just works so much better.
 
-**Tab titles** — `grove` creates tmux sessions named `grove/<workspace>/<name>`, and `set-titles` pushes that to your terminal as the tab name. Instead of a sea of identical "zsh" tabs, you see exactly which workspace each tab is for. Ghostty picks up the tmux title automatically — no extra config needed. In iTerm2, you'll also need to enable **Profiles → General → Title → "Applications in terminal may change the title"**.
+**Tab titles** — `gv` creates tmux sessions named `grove/<workspace>/<name>`, and `set-titles` pushes that to your terminal as the tab name. Instead of a sea of identical "zsh" tabs, you see exactly which workspace each tab is for. Ghostty picks up the tmux title automatically — no extra config needed. In iTerm2, you'll also need to enable **Profiles → General → Title → "Applications in terminal may change the title"**.
 
 ## Requirements
 
