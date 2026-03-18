@@ -190,14 +190,28 @@ _grove_merge_agent_configs() {
             done
         fi
 
-        # Copy .cursor/*
+        # Copy .cursor/* — merge contents of rules/, commands/, skills/ into canonical dirs
+        # with prefixed filenames; copy other top-level items with prefixed names.
         if [[ -d "$project_dir/.cursor" ]]; then
             mkdir -p "$workspace_root/.cursor"
             for item in "$project_dir/.cursor"/*(N); do
                 item_name=$(basename "$item")
-                link_name="${project}--${item_name}"
-                if [[ ! -e "$workspace_root/.cursor/$link_name" ]]; then
-                    cp -R "$item" "$workspace_root/.cursor/$link_name"
+                if [[ -d "$item" && ( "$item_name" = rules || "$item_name" = commands || "$item_name" = skills ) ]]; then
+                    # Merge contents into canonical subdir with prefixed names
+                    mkdir -p "$workspace_root/.cursor/$item_name"
+                    for child in "$item"/*(N); do
+                        local child_name=$(basename "$child")
+                        local prefixed="${project}--${child_name}"
+                        if [[ ! -e "$workspace_root/.cursor/$item_name/$prefixed" ]]; then
+                            cp -R "$child" "$workspace_root/.cursor/$item_name/$prefixed"
+                        fi
+                    done
+                else
+                    # Top-level file/dir — copy with prefixed name
+                    link_name="${project}--${item_name}"
+                    if [[ ! -e "$workspace_root/.cursor/$link_name" ]]; then
+                        cp -R "$item" "$workspace_root/.cursor/$link_name"
+                    fi
                 fi
             done
         fi
