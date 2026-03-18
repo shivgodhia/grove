@@ -155,8 +155,8 @@ _grove_resolve_branch_name() {
     fi
 }
 
-# Copy .claude/skills/* (with prefixed name) and symlink .cursor/* from each project worktree into workspace root.
-# Skills are copied (not symlinked) so the frontmatter name: can be rewritten with a project prefix.
+# Copy .claude/skills/* and .cursor/* from each project worktree into workspace root.
+# Skills have their frontmatter name: rewritten with a project prefix to avoid collisions.
 # Uses ${project}-- prefix to avoid collisions.
 _grove_merge_agent_configs() {
     local workspace_root="$1"
@@ -190,15 +190,14 @@ _grove_merge_agent_configs() {
             done
         fi
 
-        # Symlink .cursor/*
+        # Copy .cursor/*
         if [[ -d "$project_dir/.cursor" ]]; then
             mkdir -p "$workspace_root/.cursor"
             for item in "$project_dir/.cursor"/*(N); do
                 item_name=$(basename "$item")
                 link_name="${project}--${item_name}"
-                target_rel="../$project/.cursor/$item_name"
                 if [[ ! -e "$workspace_root/.cursor/$link_name" ]]; then
-                    ln -s "$target_rel" "$workspace_root/.cursor/$link_name"
+                    cp -R "$item" "$workspace_root/.cursor/$link_name"
                 fi
             done
         fi
