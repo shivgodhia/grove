@@ -155,8 +155,9 @@ _grove_resolve_branch_name() {
     fi
 }
 
-# Symlink .claude/skills/* and .cursor/* from each project worktree into workspace root.
-# Uses relative symlinks prefixed with ${project}-- to avoid collisions.
+# Copy .claude/skills/* (with prefixed name) and symlink .cursor/* from each project worktree into workspace root.
+# Skills are copied (not symlinked) so the frontmatter name: can be rewritten with a project prefix.
+# Uses ${project}-- prefix to avoid collisions.
 _grove_merge_agent_configs() {
     local workspace_root="$1"
     shift
@@ -166,15 +167,25 @@ _grove_merge_agent_configs() {
     for project in "${projects[@]}"; do
         project_dir="$workspace_root/$project"
 
-        # Symlink .claude/skills/*
+        # Copy .claude/skills/* with rewritten name: frontmatter
         if [[ -d "$project_dir/.claude/skills" ]]; then
             mkdir -p "$workspace_root/.claude/skills"
             for skill in "$project_dir/.claude/skills"/*(N); do
                 skill_name=$(basename "$skill")
                 link_name="${project}--${skill_name}"
-                target_rel="../../../$project/.claude/skills/$skill_name"
                 if [[ ! -e "$workspace_root/.claude/skills/$link_name" ]]; then
-                    ln -s "$target_rel" "$workspace_root/.claude/skills/$link_name"
+                    if [[ -d "$skill" ]]; then
+                        # Skill is a directory (contains SKILL.md) — copy dir and rewrite name in SKILL.md
+                        cp -R "$skill" "$workspace_root/.claude/skills/$link_name"
+                        if [[ -f "$workspace_root/.claude/skills/$link_name/SKILL.md" ]]; then
+                            sed -i '' "s/^name: .*/name: ${project}--${skill_name}/" \
+                                "$workspace_root/.claude/skills/$link_name/SKILL.md"
+                        fi
+                    else
+                        # Skill is a plain file — copy and rewrite name
+                        sed "s/^name: .*/name: ${project}--${skill_name}/" "$skill" \
+                            > "$workspace_root/.claude/skills/$link_name"
+                    fi
                 fi
             done
         fi
