@@ -1,0 +1,3 @@
+[submodule "tests/lib/ztr"]
+	path = tests/lib/ztr
+	url = https://github.com/olets/zsh-test-runner.git
