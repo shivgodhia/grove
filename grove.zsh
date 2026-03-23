@@ -408,29 +408,39 @@ HELP
                     instance_name=$(basename "$instance_dir")
                     session_name=$(_grove_tmux_session_name "$ws_name" "$instance_name")
 
-                    # Get branch from first project worktree, check if all match
-                    branch=""
-                    divergent_branches=()
+                    # Determine the expected branch for this instance.
+                    # At creation, the branch is either the raw instance name
+                    # (if it matched a remote) or $GROVE_BRANCH_PREFIX/$instance_name.
+                    # Reconstruct: check if any repo is on $PREFIX/$instance_name;
+                    # otherwise fall back to $instance_name itself.
+                    local expected_branch="$instance_name"
+                    local prefixed_branch="$GROVE_BRANCH_PREFIX/$instance_name"
+                    local -A repo_branches=()
                     for project_dir in "$instance_dir"/*(N/); do
                         project=$(basename "$project_dir")
                         [[ "$project" == .* ]] && continue
                         if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
                             _b=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
-                            if [[ -z "$branch" ]]; then
-                                branch="$_b"
-                            elif [[ "$_b" != "$branch" ]]; then
-                                divergent_branches+=("$project:$_b")
+                            repo_branches[$project]="$_b"
+                            if [[ "$_b" == "$prefixed_branch" ]]; then
+                                expected_branch="$prefixed_branch"
                             fi
                         fi
                     done
 
                     if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  • $instance_name  $branch  [tmux: $session_name]"
+                        echo "  • $instance_name  $expected_branch  [tmux: $session_name]"
                     else
-                        echo "  • $instance_name  $branch"
+                        echo "  • $instance_name  $expected_branch"
                     fi
 
-                    # Show per-project branches only if they diverge
+                    # Show per-project branches that diverge from expected
+                    divergent_branches=()
+                    for project _b in "${(@kv)repo_branches}"; do
+                        if [[ "$_b" != "$expected_branch" ]]; then
+                            divergent_branches+=("$project:$_b")
+                        fi
+                    done
                     if (( ${#divergent_branches} > 0 )); then
                         for entry in "${divergent_branches[@]}"; do
                             echo "    ^ ${entry%%:*} on ${entry#*:}"
