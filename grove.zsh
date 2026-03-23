@@ -348,6 +348,17 @@ HELP
         local -a project_list multi_ws single_ws
         local -a divergent_branches
 
+        # Color definitions
+        local c_reset=$'\e[0m'
+        local c_header=$'\e[1;37m'          # bold white – section headers
+        local c_single_ws=$'\e[1;36m'       # bold cyan – single-repo workspace names
+        local c_multi_ws=$'\e[1;36m'        # bold cyan – multi-repo workspace names (same as single)
+        local c_instance=$'\e[0;37m'        # white – instance names
+        local c_branch=$'\e[0;32m'          # green – branch names
+        local c_tmux=$'\e[0;90m'            # dim gray – tmux session info
+        local c_repo=$'\e[0;33m'            # yellow – repo/project names
+        local c_divergent=$'\e[0;31m'       # red – divergent branch indicator
+
         # Separate into multi-repo and single-repo workspaces
         for ws_name in "${all_ws[@]}"; do
             projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null) || continue
@@ -361,11 +372,11 @@ HELP
 
         # ── Single-Repo Workspaces ──
         if (( ${#single_ws} > 0 )); then
-            echo "=== Single-Repo Workspaces ==="
+            echo "${c_header}=== Single-Repo Workspaces ===${c_reset}"
             for ws_name in "${single_ws[@]}"; do
                 ws_dir="$workspaces_dir/$ws_name"
 
-                echo "\n[$ws_name]"
+                echo "\n${c_single_ws}[$ws_name]${c_reset}"
 
                 for instance_dir in "$ws_dir"/*(N/); do
                     instance_name=$(basename "$instance_dir")
@@ -383,9 +394,9 @@ HELP
                     done
 
                     if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  • $instance_name  $branch  [tmux: $session_name]"
+                        echo "  • ${c_instance}$instance_name${c_reset}  ${c_branch}$branch${c_reset}  ${c_tmux}[tmux: $session_name]${c_reset}"
                     else
-                        echo "  • $instance_name  $branch"
+                        echo "  • ${c_instance}$instance_name${c_reset}  ${c_branch}$branch${c_reset}"
                     fi
                 done
             done
@@ -396,13 +407,17 @@ HELP
             if (( ${#single_ws} > 0 )); then
                 echo ""
             fi
-            echo "=== Multi-Repo Workspaces ==="
+            echo "${c_header}=== Multi-Repo Workspaces ===${c_reset}"
             for ws_name in "${multi_ws[@]}"; do
                 ws_dir="$workspaces_dir/$ws_name"
                 projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null) || continue
                 project_list=(${(s: :)projects})
 
-                echo "\n[$ws_name] (${(j:, :)project_list})"
+                local colored_projects=()
+                for _p in "${project_list[@]}"; do
+                    colored_projects+=("${c_repo}$_p${c_reset}")
+                done
+                echo "\n${c_multi_ws}[$ws_name]${c_reset} (${(j:, :)colored_projects})"
 
                 for instance_dir in "$ws_dir"/*(N/); do
                     instance_name=$(basename "$instance_dir")
@@ -429,9 +444,9 @@ HELP
                     done
 
                     if tmux has-session -t "$session_name" 2>/dev/null; then
-                        echo "  • $instance_name  $expected_branch  [tmux: $session_name]"
+                        echo "  • ${c_instance}$instance_name${c_reset}  ${c_branch}$expected_branch${c_reset}  ${c_tmux}[tmux: $session_name]${c_reset}"
                     else
-                        echo "  • $instance_name  $expected_branch"
+                        echo "  • ${c_instance}$instance_name${c_reset}  ${c_branch}$expected_branch${c_reset}"
                     fi
 
                     # Show per-project branches that diverge from expected
@@ -443,7 +458,7 @@ HELP
                     done
                     if (( ${#divergent_branches} > 0 )); then
                         for entry in "${divergent_branches[@]}"; do
-                            echo "    ^ ${entry%%:*} on ${entry#*:}"
+                            echo "    ${c_divergent}^${c_reset} ${c_repo}${entry%%:*}${c_reset} on ${c_branch}${entry#*:}${c_reset}"
                         done
                     fi
                 done
