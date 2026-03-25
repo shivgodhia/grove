@@ -613,6 +613,11 @@ HELP
     fi
 
     if [[ -z "$workspace" || -z "$name" ]]; then
+        # Launch TUI if fzf available and running interactively
+        if (( $+functions[_grove_tui] )) && [[ -t 0 && -t 1 ]]; then
+            _grove_tui
+            return $?
+        fi
         echo "Usage: gv <workspace> <name>              # attach to tmux session (creates workspace if needed)"
         echo "       gv <workspace> <name> <command>    # run command in workspace (no tmux)"
         echo "       gv --list"
@@ -937,6 +942,12 @@ _grove_fzf_select() {
         --bind='tab:accept'
 }
 
+# ─── TUI module ─────────────────────────────────────────────────────────────
+# Source TUI module (fzf-powered interactive dashboard)
+if [[ -f "$_grove_script_dir/grove-tui.zsh" ]]; then
+    source "$_grove_script_dir/grove-tui.zsh"
+fi
+
 # ZLE widget: intercepts tab when typing a `grove` command and uses fzf
 # for fuzzy workspace/instance selection. For other commands, falls
 # through to the normal tab-completion widget.
@@ -1128,6 +1139,8 @@ _grove_fzf_complete_widget() {
 }
 
 # Register the fzf completion widget, preserving the original tab binding
+# Skip entirely in non-interactive shells (e.g. fzf preview subprocesses)
+[[ -o interactive ]] || return 0 2>/dev/null || true
 if _grove_fzf_available; then
     # Save whatever widget is currently bound to tab, skipping our own widget
     _grove_orig_tab_widget="${$(bindkey '^I' 2>/dev/null)##*\" }"
