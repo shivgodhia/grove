@@ -77,3 +77,52 @@ ztr test '
     # Should fail (branch exists in backend repo), not redirect across workspaces
     (( rc != 0 ))
 ' 'does not redirect across different workspaces'
+
+# When user provides the full prefixed branch name (with slash),
+# it should still find the existing workspace
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    [[ -d "$GROVE_WORKSPACES_DIR/myapp/branch-a" ]]
+    # Now request same workspace using full prefix: testuser/branch-a
+    MOCK_TMUX_CALLS=()
+    gv myapp testuser/branch-a &>/dev/null
+    # Should NOT create a new "testuser-branch-a" directory
+    [[ ! -d "$GROVE_WORKSPACES_DIR/myapp/testuser-branch-a" ]]
+' 'strips branch prefix from name so slash does not create new directory'
+
+# Redirect should work when user provides full prefixed branch name
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    git -C "$wt_dir" checkout -b "testuser/branch-b" --quiet
+    MOCK_TMUX_CALLS=()
+    # Use full prefixed name — should still redirect
+    gv myapp testuser/branch-b &>/dev/null
+    [[ ! -d "$GROVE_WORKSPACES_DIR/myapp/testuser-branch-b" ]] &&
+    [[ ! -d "$GROVE_WORKSPACES_DIR/myapp/branch-b" ]]
+' 'redirect works when user provides full prefixed branch name with slash'
+
+# --rm should work with full prefixed branch name
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    [[ -d "$GROVE_WORKSPACES_DIR/myapp/branch-a" ]]
+    gv --rm testuser/branch-a 2>/dev/null || gv --rm myapp testuser/branch-a &>/dev/null
+    [[ ! -d "$GROVE_WORKSPACES_DIR/myapp/branch-a" ]]
+' 'rm with full prefixed branch name removes correct workspace'
+
+# When a branch with a different prefix (e.g. shiv/branch-b) is created
+# inside a worktree, searching by that exact name should redirect
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    # Create a branch with a non-matching prefix (not testuser/)
+    git -C "$wt_dir" checkout -b "shiv/branch-b" --quiet
+    MOCK_TMUX_CALLS=()
+    gv myapp shiv/branch-b &>/dev/null
+    # Should redirect, not create a new workspace
+    [[ ! -d "$GROVE_WORKSPACES_DIR/myapp/shiv-branch-b" ]]
+' 'redirect works for branches with arbitrary slash prefixes'
