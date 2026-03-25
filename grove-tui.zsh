@@ -17,13 +17,17 @@ _grove_tui_parse_selection() {
     local line="$1"
     # Strip ANSI escape codes
     local clean=$(echo "$line" | sed $'s/\x1b\\[[0-9;]*m//g')
-    # Extract [workspace]
-    REPLY_WS="${clean%%]*}"
+    # Field 1 (tab-separated): [workspace]  →  extract name from brackets
+    local field1="${clean%%$'\t'*}"
+    REPLY_WS="${field1%%]*}"
     REPLY_WS="${REPLY_WS#\[}"
-    # Extract instance (first non-space word after ] and spaces)
-    local rest="${clean#*]}"
-    # Trim leading spaces using sed
-    REPLY_INST=$(echo "$rest" | sed 's/^ *//' | cut -d' ' -f1)
+    REPLY_WS="${REPLY_WS## }"
+    REPLY_WS="${REPLY_WS%% }"
+    # Field 2 (tab-separated): instance name (may have trailing spaces from padding)
+    local rest="${clean#*$'\t'}"
+    local field2="${rest%%$'\t'*}"
+    # Trim leading/trailing spaces (use sed for reliable multi-space trim)
+    REPLY_INST=$(echo "$field2" | sed 's/^ *//;s/ *$//')
 }
 
 # ─── List entries ────────────────────────────────────────────────────────────
@@ -75,8 +79,17 @@ _grove_tui_list_entries() {
         done
     done
 
-    # Pass 2: output with aligned columns
-    # Pad raw text first, then wrap with ANSI colors to avoid escape codes breaking alignment
+    # Ensure headings fit
+    (( ${#:- Workspace} > max_ws )) && max_ws=${#:- Workspace}
+    (( ${#:-Name} > max_inst )) && max_inst=${#:-Name}
+
+    # Column headings
+    local c_dim=$'\e[0;90m'
+    local ws_hdr=$(printf "%-${max_ws}s" "Workspace")
+    local inst_hdr=$(printf "%-${max_inst}s" "Name")
+    echo "${c_dim}${ws_hdr}${c_reset}\t${c_dim}${inst_hdr}${c_reset}\t${c_dim}Branch${c_reset}"
+
+    # Data rows
     local row ws inst br tmux_flag
     for row in "${rows[@]}"; do
         ws="${row%%|*}";        row="${row#*|}"
@@ -89,7 +102,7 @@ _grove_tui_list_entries() {
         local ws_padded=$(printf "%-${max_ws}s" "[${ws}]")
         local inst_padded=$(printf "%-${max_inst}s" "$inst")
 
-        echo "${c_ws}${ws_padded}${c_reset}  ${c_inst}${inst_padded}${c_reset}  ${c_branch}${br}${c_reset}${tmux_indicator}"
+        echo "${c_ws}${ws_padded}${c_reset}\t${c_inst}${inst_padded}${c_reset}\t${c_branch}${br}${c_reset}${tmux_indicator}"
     done
 }
 
@@ -212,7 +225,11 @@ _grove_tui() {
     local result
     result=$(echo "$entries" | fzf \
         --ansi \
+        --delimiter=$'\t' \
+        --nth=1,2 \
+        --tabstop=2 \
         --header="Grove  (enter: open  ctrl-n: new  del/ctrl-x: remove)" \
+        --header-lines=1 \
         --preview="$preview_cmd" \
         --preview-window=right:40%:wrap \
         --height=80% \
