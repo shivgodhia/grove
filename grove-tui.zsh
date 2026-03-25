@@ -86,6 +86,35 @@ _grove_tui_list_entries() {
     (( ${#:- Workspace} > max_ws )) && max_ws=${#:- Workspace}
     (( ${#:-Name} > max_inst )) && max_inst=${#:-Name}
 
+    # Calculate max column widths based on terminal width
+    # fzf preview takes ~40%, so list area is ~60% of terminal
+    local term_cols=${COLUMNS:-120}
+    local list_cols=$(( term_cols * 60 / 100 ))
+    local tmux_col=4  # "Tmux" / "  ● "
+    local gaps=4       # tab stops between columns
+    local avail=$(( list_cols - tmux_col - gaps ))
+
+    # Allocate: workspace gets its natural width (capped at 25%),
+    # then name and branch split the remainder
+    local max_ws_cap=$(( avail * 25 / 100 ))
+    (( max_ws > max_ws_cap )) && max_ws=$max_ws_cap
+    local remaining=$(( avail - max_ws ))
+    local max_inst_cap=$(( remaining * 45 / 100 ))
+    local max_br_cap=$(( remaining * 55 / 100 ))
+
+    # Clamp to caps (but don't expand beyond natural width)
+    (( max_inst > max_inst_cap )) && max_inst=$max_inst_cap
+
+    # Truncation helper: truncate string to max len with ".." suffix
+    _grove_tui_trunc() {
+        local str="$1" max="$2"
+        if (( ${#str} > max )); then
+            echo "${str[1, max - 2]}.."
+        else
+            echo "$str"
+        fi
+    }
+
     # Column headings
     local c_dim=$'\e[0;90m'
     local ws_hdr=$(printf "%-${max_ws}s" "Workspace")
@@ -93,7 +122,7 @@ _grove_tui_list_entries() {
     echo "${c_dim}${ws_hdr}${c_reset}\t${c_dim}Tmux${c_reset}\t${c_dim}${inst_hdr}${c_reset}\t${c_dim}Branch${c_reset}"
 
     # Data rows
-    local row ws inst br tmux_flag tmux_icon ws_padded inst_padded
+    local row ws inst br tmux_flag tmux_icon ws_padded inst_padded br_display
     for row in "${rows[@]}"; do
         ws="${row%%|*}";        row="${row#*|}"
         inst="${row%%|*}";      row="${row#*|}"
@@ -105,10 +134,14 @@ _grove_tui_list_entries() {
             tmux_icon="  ${c_tmux_off}✗${c_reset} "
         fi
 
-        ws_padded=$(printf "%-${max_ws}s" "[${ws}]")
-        inst_padded=$(printf "%-${max_inst}s" "$inst")
+        local ws_text=$(_grove_tui_trunc "[${ws}]" $max_ws)
+        local inst_text=$(_grove_tui_trunc "$inst" $max_inst)
+        br_display=$(_grove_tui_trunc "$br" $max_br_cap)
 
-        echo "${c_ws}${ws_padded}${c_reset}\t${tmux_icon}\t${c_inst}${inst_padded}${c_reset}\t${c_branch}${br}${c_reset}"
+        ws_padded=$(printf "%-${max_ws}s" "$ws_text")
+        inst_padded=$(printf "%-${max_inst}s" "$inst_text")
+
+        echo "${c_ws}${ws_padded}${c_reset}\t${tmux_icon}\t${c_inst}${inst_padded}${c_reset}\t${c_branch}${br_display}${c_reset}"
     done
 }
 
