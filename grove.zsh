@@ -513,6 +513,32 @@ HELP
 
         # Scan actual directories on disk (not config) to handle config drift
         local rc=0 project branch_name
+
+        # Pre-flight: if not forcing, check all worktrees for uncommitted changes
+        # before removing anything (atomic: all-or-nothing)
+        if [[ -z "$force_flag" ]]; then
+            local dirty_worktrees=()
+            for project_dir in "$workspace_root"/*(N/); do
+                project=$(basename "$project_dir")
+                [[ "$project" == .* ]] && continue
+                if [[ -d "$GROVE_PROJECTS_DIR/$project/.git" ]]; then
+                    if ! git -C "$project_dir" diff --quiet 2>/dev/null || \
+                       ! git -C "$project_dir" diff --cached --quiet 2>/dev/null || \
+                       [[ -n "$(git -C "$project_dir" ls-files --others --exclude-standard 2>/dev/null)" ]]; then
+                        dirty_worktrees+=("$project")
+                    fi
+                fi
+            done
+            if (( ${#dirty_worktrees} > 0 )); then
+                echo "Cannot remove workspace: uncommitted changes in:"
+                for project in "${dirty_worktrees[@]}"; do
+                    echo "  - $project"
+                done
+                echo "Use --force to remove anyway: gv --rm --force $workspace $instance"
+                return 1
+            fi
+        fi
+
         for project_dir in "$workspace_root"/*(N/); do
             project=$(basename "$project_dir")
             # Skip non-worktree directories (like .claude, .cursor)
