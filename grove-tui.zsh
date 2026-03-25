@@ -145,6 +145,16 @@ _grove_tui_list_entries() {
     done
 }
 
+# ─── Preview label ────────────────────────────────────────────────────────────
+# Generate the dynamic preview pane border title.
+_grove_tui_label() {
+    local REPLY_WS REPLY_INST
+    _grove_tui_parse_selection "$1"
+    local t="single-repo"
+    _grove_is_multi_project "$REPLY_WS" 2>/dev/null && t="multi-repo"
+    echo " [${REPLY_WS}]/${REPLY_INST} | ${t} "
+}
+
 # ─── Preview ─────────────────────────────────────────────────────────────────
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
@@ -163,21 +173,42 @@ _grove_tui_preview() {
         return 1
     fi
 
-    # Header
-    local projects
-    projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null)
-    local -a project_list=(${(s: :)projects})
-
-    if (( ${#project_list} > 1 )); then
-        echo "Type: multi-repo"
-        echo "Repositories: ${(j:, :)project_list}"
+    # tmux status
+    local session_name=$(_grove_tmux_session_name "$ws_name" "$instance_name")
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        echo "\e[0;33m● tmux session active\e[0m ($session_name)"
     else
-        echo "Type: single-repo"
+        echo "No tmux session"
     fi
     echo ""
 
+    # Kick off parallel PR status fetches for all projects
+    local -A pr_tmpfiles=()
+    local project_dir project branch repo_url
+    if command -v gh &>/dev/null; then
+        for project_dir in "$instance_dir"/*(N/); do
+            project="${project_dir:t}"
+            [[ "$project" == .* ]] && continue
+            if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
+                branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+                repo_url=$(git -C "$project_dir" remote get-url origin 2>/dev/null)
+                if [[ -n "$branch" && -n "$repo_url" ]]; then
+                    local tmpf=$(mktemp)
+                    pr_tmpfiles[$project]="$tmpf"
+                    gh pr view "$branch" --repo "$repo_url" \
+                        --json state,mergeable,reviewDecision,statusCheckRollup \
+                        --jq '{state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
+                        > "$tmpf" 2>/dev/null &
+                fi
+            fi
+        done
+        wait
+    fi
+
     # Per-project details
-    local project_dir project branch last_commit status_line
+    local last_commit status_line pr_info
+    local pr_state pr_mergeable pr_review pr_ci_status pr_data
+    local pr_state_display pr_review_display pr_merge_display pr_ci_display
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -194,20 +225,59 @@ _grove_tui_preview() {
                 status_line="\e[0;32m[clean]\e[0m"
             fi
 
+            # Read PR status from parallel fetch
+            pr_info=""
+            if [[ -n "${pr_tmpfiles[$project]}" ]]; then
+                pr_data=$(<"${pr_tmpfiles[$project]}")
+                rm -f "${pr_tmpfiles[$project]}"
+                if [[ -n "$pr_data" ]]; then
+                    pr_state=$(echo "$pr_data" | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4)
+                    pr_mergeable=$(echo "$pr_data" | grep -o '"mergeable":"[^"]*"' | head -1 | cut -d'"' -f4)
+                    pr_review=$(echo "$pr_data" | grep -o '"reviewDecision":"[^"]*"' | head -1 | cut -d'"' -f4)
+                    pr_ci_status=$(echo "$pr_data" | grep -o '"ci":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+                    pr_state_display=""
+                    case "$pr_state" in
+                        OPEN)    pr_state_display="\e[0;32mOpen\e[0m" ;;
+                        MERGED)  pr_state_display="\e[0;35mMerged\e[0m" ;;
+                        CLOSED)  pr_state_display="\e[0;31mClosed\e[0m" ;;
+                        *)       pr_state_display="$pr_state" ;;
+                    esac
+
+                    pr_review_display=""
+                    case "$pr_review" in
+                        APPROVED)          pr_review_display="  \e[0;32m✓ Approved\e[0m" ;;
+                        CHANGES_REQUESTED) pr_review_display="  \e[0;31m✗ Changes requested\e[0m" ;;
+                        REVIEW_REQUIRED)   pr_review_display="  \e[0;33m● Review required\e[0m" ;;
+                    esac
+
+                    pr_merge_display=""
+                    case "$pr_mergeable" in
+                        MERGEABLE)   pr_merge_display="  \e[0;32m↑ Mergeable\e[0m" ;;
+                        CONFLICTING) pr_merge_display="  \e[0;31m⚡ Conflicts\e[0m" ;;
+                    esac
+
+                    pr_ci_display=""
+                    case "$pr_ci_status" in
+                        FAILURE) pr_ci_display="  \e[0;31m✗ CI failing\e[0m" ;;
+                        PENDING) pr_ci_display="  \e[0;33m● CI running\e[0m" ;;
+                        SUCCESS) pr_ci_display="  \e[0;32m✓ CI passed\e[0m" ;;
+                    esac
+
+                    pr_info="  PR:     ${pr_state_display}${pr_review_display}${pr_merge_display}${pr_ci_display}"
+                else
+                    pr_info="  PR:     \e[0;90mNo PR\e[0m"
+                fi
+            fi
+
             echo "\e[0;33m${project}\e[0m  ${status_line}"
             echo "  Branch: \e[0;32m${branch}\e[0m"
             echo "  Last:   ${last_commit}"
+            [[ -n "$pr_info" ]] && echo "$pr_info"
             echo ""
         fi
     done
 
-    # tmux status
-    local session_name=$(_grove_tmux_session_name "$ws_name" "$instance_name")
-    if tmux has-session -t "$session_name" 2>/dev/null; then
-        echo "\e[0;33m● tmux session active\e[0m ($session_name)"
-    else
-        echo "No tmux session"
-    fi
 }
 
 # ─── New instance flow ───────────────────────────────────────────────────────
@@ -259,8 +329,8 @@ _grove_tui() {
     local _grove_tui_script_dir="${${(%):-%x}:A:h}"
     local preview_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_preview \"\$1\"' -- {}"
 
-    # Extract workspace/instance for preview label: strip ANSI, grab fields 1 & 3
-    local label_cmd='echo " $(echo {} | sed '"'"'s/\x1b\[[0-9;]*m//g'"'"' | awk -F"\t" '"'"'{gsub(/^ *| *$/,"",$1); gsub(/^ *| *$/,"",$3); print $1 "/" $3}'"'"') "'
+    # Extract workspace/instance + repo type for preview label
+    local label_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_label \"\$1\"' -- {}"
 
     # Main fzf screen with --expect to capture keybindings
     local result
