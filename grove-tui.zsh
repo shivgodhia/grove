@@ -159,50 +159,6 @@ _grove_tui_new() {
     gv "$workspace" "$name"
 }
 
-# ─── Remove instance flow ───────────────────────────────────────────────────
-_grove_tui_remove() {
-    local entries
-    entries=$(_grove_tui_list_entries)
-    if [[ -z "$entries" ]]; then
-        echo "No instances to remove."
-        return 1
-    fi
-
-    echo "Select instance to remove:"
-    local selection
-    selection=$(echo "$entries" | fzf \
-        --ansi \
-        --header="Select instance to remove (enter: confirm, esc: cancel)" \
-        --height=~40% \
-        --layout=reverse \
-        --no-sort \
-        --color='hl:magenta:underline,hl+:magenta:underline' \
-        --no-info) || return 1
-
-    # Parse workspace and instance from selection
-    local clean="${selection//$'\e['[0-9;]#m/}"
-    local ws_name="${clean%%]*}"
-    ws_name="${ws_name#\[}"
-    local instance_name="${clean#*$'\t'}"
-    instance_name="${instance_name%%$'\t'*}"
-    instance_name="${instance_name## }"
-    instance_name="${instance_name%% }"
-
-    if [[ -z "$ws_name" || -z "$instance_name" ]]; then
-        return 1
-    fi
-
-    # Confirmation
-    local confirm=""
-    read -r "confirm?Remove ${ws_name}/${instance_name}? [y/N] "
-    if [[ "$confirm" != [yY] ]]; then
-        echo "Cancelled."
-        return 0
-    fi
-
-    gv --rm "$ws_name" "$instance_name"
-}
-
 # ─── Main TUI ───────────────────────────────────────────────────────────────
 _grove_tui() {
     local entries
@@ -238,30 +194,39 @@ _grove_tui() {
     local key="${result%%$'\n'*}"
     local selection="${result#*$'\n'}"
 
+    if [[ -z "$selection" ]]; then
+        return 0
+    fi
+
+    # Parse workspace and instance from the selected line
+    local clean="${selection//$'\e['[0-9;]#m/}"
+    local ws_name="${clean%%]*}"
+    ws_name="${ws_name#\[}"
+    local instance_name="${clean#*$'\t'}"
+    instance_name="${instance_name%%$'\t'*}"
+    instance_name="${instance_name## }"
+    instance_name="${instance_name%% }"
+
+    if [[ -z "$ws_name" || -z "$instance_name" ]]; then
+        return 0
+    fi
+
     case "$key" in
         ctrl-n)
             _grove_tui_new
             ;;
         ctrl-x)
-            _grove_tui_remove
+            # Remove the currently highlighted instance
+            local confirm=""
+            read -r "confirm?Remove ${ws_name}/${instance_name}? [Y/n] "
+            if [[ -z "$confirm" || "$confirm" == [yY] ]]; then
+                gv --rm "$ws_name" "$instance_name"
+            else
+                echo "Cancelled."
+            fi
             ;;
         *)
-            # Enter pressed — attach to selected instance
-            if [[ -z "$selection" ]]; then
-                return 0
-            fi
-
-            local clean="${selection//$'\e['[0-9;]#m/}"
-            local ws_name="${clean%%]*}"
-            ws_name="${ws_name#\[}"
-            local instance_name="${clean#*$'\t'}"
-            instance_name="${instance_name%%$'\t'*}"
-            instance_name="${instance_name## }"
-            instance_name="${instance_name%% }"
-
-            if [[ -n "$ws_name" && -n "$instance_name" ]]; then
-                gv "$ws_name" "$instance_name"
-            fi
+            gv "$ws_name" "$instance_name"
             ;;
     esac
 }
