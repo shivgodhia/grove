@@ -1139,6 +1139,8 @@ _grove_fzf_complete_widget() {
 }
 
 # Register the fzf completion widget, preserving the original tab binding
+# Skip entirely in non-interactive shells (e.g. fzf preview subprocesses)
+[[ -o interactive ]] || return 0 2>/dev/null || true
 if _grove_fzf_available; then
     # Save whatever widget is currently bound to tab, skipping our own widget
     _grove_orig_tab_widget="${$(bindkey '^I' 2>/dev/null)##*\" }"
