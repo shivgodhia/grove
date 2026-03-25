@@ -86,10 +86,10 @@ _grove_tui_preview() {
 
     echo "\e[1;36m[$ws_name]\e[0m"
     if (( ${#project_list} > 1 )); then
-        echo "Type: multi-project"
+        echo "Type: multi-repo"
         echo "Projects: ${(j:, :)project_list}"
     else
-        echo "Type: single-project"
+        echo "Type: single-repo"
     fi
     echo ""
 
