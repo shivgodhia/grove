@@ -10,10 +10,26 @@
 # Guard: skip entirely if fzf is not available
 _grove_fzf_available 2>/dev/null || return 0
 
+# ─── Parsing helper ──────────────────────────────────────────────────────────
+# Parse workspace and instance from an fzf entry line.
+# Sets REPLY_WS and REPLY_INST in the caller's scope.
+_grove_tui_parse_selection() {
+    local line="$1"
+    # Strip ANSI escape codes
+    local clean=$(echo "$line" | sed $'s/\x1b\\[[0-9;]*m//g')
+    # Extract [workspace]
+    REPLY_WS="${clean%%]*}"
+    REPLY_WS="${REPLY_WS#\[}"
+    # Extract instance (first non-space word after ] and spaces)
+    local rest="${clean#*]}"
+    # Trim leading spaces using sed
+    REPLY_INST=$(echo "$rest" | sed 's/^ *//' | cut -d' ' -f1)
+}
+
 # ─── List entries ────────────────────────────────────────────────────────────
 # Generate one line per workspace instance for the fzf main screen.
 # Format: [workspace]  instance  branch  ● tmux
-# Fields are tab-separated; ANSI colors for display.
+# Columns are space-padded and aligned; ANSI colors for display.
 _grove_tui_list_entries() {
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
     local -a all_ws=(${(s: :)$(_grove_list_all_workspaces)})
@@ -24,7 +40,10 @@ _grove_tui_list_entries() {
     local c_branch=$'\e[0;32m'    # green — branch
     local c_tmux=$'\e[0;33m'      # yellow — tmux indicator
 
-    local ws_name projects instance_dir instance_name session_name branch project_dir project
+    # Pass 1: collect data and measure column widths
+    local -a rows=()  # each row: ws_name|instance_name|branch|has_tmux
+    local max_ws=0 max_inst=0
+    local ws_name instance_dir instance_name session_name branch project_dir project
 
     for ws_name in "${all_ws[@]}"; do
         [[ -d "$workspaces_dir/$ws_name" ]] || continue
@@ -44,13 +63,33 @@ _grove_tui_list_entries() {
                 fi
             done
 
-            local tmux_indicator=""
-            if tmux has-session -t "$session_name" 2>/dev/null; then
-                tmux_indicator="  ${c_tmux}● tmux${c_reset}"
-            fi
+            local has_tmux=0
+            tmux has-session -t "$session_name" 2>/dev/null && has_tmux=1
 
-            echo "${c_ws}[${ws_name}]${c_reset}\t${c_inst}${instance_name}${c_reset}\t${c_branch}${branch}${c_reset}${tmux_indicator}"
+            # Track max widths (including brackets for workspace)
+            local ws_display="[${ws_name}]"
+            (( ${#ws_display} > max_ws )) && max_ws=${#ws_display}
+            (( ${#instance_name} > max_inst )) && max_inst=${#instance_name}
+
+            rows+=("${ws_name}|${instance_name}|${branch}|${has_tmux}")
         done
+    done
+
+    # Pass 2: output with aligned columns
+    # Pad raw text first, then wrap with ANSI colors to avoid escape codes breaking alignment
+    local row ws inst br tmux_flag
+    for row in "${rows[@]}"; do
+        ws="${row%%|*}";        row="${row#*|}"
+        inst="${row%%|*}";      row="${row#*|}"
+        br="${row%%|*}";        tmux_flag="${row##*|}"
+
+        local tmux_indicator=""
+        (( tmux_flag )) && tmux_indicator="  ${c_tmux}● tmux${c_reset}"
+
+        local ws_padded=$(printf "%-${max_ws}s" "[${ws}]")
+        local inst_padded=$(printf "%-${max_inst}s" "$inst")
+
+        echo "${c_ws}${ws_padded}${c_reset}  ${c_inst}${inst_padded}${c_reset}  ${c_branch}${br}${c_reset}${tmux_indicator}"
     done
 }
 
@@ -61,17 +100,10 @@ _grove_tui_preview() {
     local line="$1"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
 
-    # Parse workspace name from [workspace] at start of line (strip ANSI)
-    local clean="${line//$'\e['[0-9;]#m/}"
-    local ws_name="${clean%%]*}"
-    ws_name="${ws_name#\[}"
-
-    # Parse instance name (second tab-separated field, strip ANSI)
-    local instance_name="${clean#*$'\t'}"
-    instance_name="${instance_name%%$'\t'*}"
-    # Trim whitespace
-    instance_name="${instance_name## }"
-    instance_name="${instance_name%% }"
+    local REPLY_WS REPLY_INST
+    _grove_tui_parse_selection "$line"
+    local ws_name="$REPLY_WS"
+    local instance_name="$REPLY_INST"
 
     local instance_dir="$workspaces_dir/$ws_name/$instance_name"
     if [[ ! -d "$instance_dir" ]]; then
@@ -180,7 +212,7 @@ _grove_tui() {
     local result
     result=$(echo "$entries" | fzf \
         --ansi \
-        --header="Grove  (enter: open  ctrl-n: new  ctrl-x: remove)" \
+        --header="Grove  (enter: open  ctrl-n: new  del/ctrl-x: remove)" \
         --preview="$preview_cmd" \
         --preview-window=right:40%:wrap \
         --height=80% \
@@ -188,7 +220,7 @@ _grove_tui() {
         --no-sort \
         --color='hl:magenta:underline,hl+:magenta:underline' \
         --no-info \
-        --expect="ctrl-n,ctrl-x")
+        --expect="ctrl-n,ctrl-x,del")
 
     # --expect outputs two lines: first is the key pressed, second is the selected item
     local key="${result%%$'\n'*}"
@@ -199,13 +231,10 @@ _grove_tui() {
     fi
 
     # Parse workspace and instance from the selected line
-    local clean="${selection//$'\e['[0-9;]#m/}"
-    local ws_name="${clean%%]*}"
-    ws_name="${ws_name#\[}"
-    local instance_name="${clean#*$'\t'}"
-    instance_name="${instance_name%%$'\t'*}"
-    instance_name="${instance_name## }"
-    instance_name="${instance_name%% }"
+    local REPLY_WS REPLY_INST
+    _grove_tui_parse_selection "$selection"
+    local ws_name="$REPLY_WS"
+    local instance_name="$REPLY_INST"
 
     if [[ -z "$ws_name" || -z "$instance_name" ]]; then
         return 0
@@ -215,7 +244,7 @@ _grove_tui() {
         ctrl-n)
             _grove_tui_new
             ;;
-        ctrl-x)
+        ctrl-x|del)
             # Remove the currently highlighted instance
             local confirm=""
             read -r "confirm?Remove ${ws_name}/${instance_name}? [Y/n] "
