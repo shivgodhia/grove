@@ -539,6 +539,9 @@ HELP
             fi
         fi
 
+        # Derive the base branch name (strip origin/ prefix if present)
+        local base_branch_name="${GROVE_BASE_BRANCH#origin/}"
+
         for project_dir in "$workspace_root"/*(N/); do
             project=$(basename "$project_dir")
             # Skip non-worktree directories (like .claude, .cursor)
@@ -546,11 +549,35 @@ HELP
                 continue
             fi
             if [[ -d "$GROVE_PROJECTS_DIR/$project/.git" ]]; then
-                branch_name=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
-                echo "Removing worktree: $project ($branch_name)"
+                # Collect all branches checked out in this worktree (HEAD + reflog history)
+                local -a wt_branches=()
+                local head_branch
+                head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+                if [[ -n "$head_branch" && "$head_branch" != "HEAD" ]]; then
+                    wt_branches+=("$head_branch")
+                fi
+                local reflog_line
+                git -C "$project_dir" reflog --format="%gs" 2>/dev/null | while read -r reflog_line; do
+                    if [[ "$reflog_line" == checkout:* ]]; then
+                        local from="${reflog_line#checkout: moving from }"
+                        from="${from%% to *}"
+                        local to="${reflog_line##* to }"
+                        [[ -n "$from" ]] && wt_branches+=("$from")
+                        [[ -n "$to" ]] && wt_branches+=("$to")
+                    fi
+                done
+                # Deduplicate
+                wt_branches=(${(u)wt_branches})
+
+                echo "Removing worktree: $project ($head_branch)"
                 git -C "$GROVE_PROJECTS_DIR/$project" worktree remove $force_flag "$project_dir" || rc=1
-                if [[ $rc -eq 0 && -n "$branch_name" && "$branch_name" != "HEAD" ]]; then
-                    git -C "$GROVE_PROJECTS_DIR/$project" branch -D "$branch_name" 2>/dev/null
+                if [[ $rc -eq 0 ]]; then
+                    local b
+                    for b in "${wt_branches[@]}"; do
+                        # Never delete the base branch
+                        [[ "$b" == "$base_branch_name" ]] && continue
+                        git -C "$GROVE_PROJECTS_DIR/$project" branch -D "$b" 2>/dev/null
+                    done
                 fi
             fi
         done
@@ -643,10 +670,71 @@ HELP
             echo "Creating new branch: $branch_name"
         fi
 
-        # c. Create workspace root
+        # c. For single-repo workspaces, check if the branch is already checked out
+        #    in another worktree within the same workspace and redirect there.
+        #    Multi-repo workspaces skip this — users should use the workspace name directly.
+        if (( ! is_multi )); then
+            local branch_in_worktree=""
+            local existing_wt
+            existing_wt=$(git -C "$projects_dir/${project_list[1]}" worktree list --porcelain 2>/dev/null | \
+                awk -v branch="$branch_name" '
+                    /^worktree / { wt = substr($0, 10) }
+                    /^branch refs\/heads\// {
+                        b = substr($0, 19)
+                        if (b == branch) print wt
+                    }
+                ')
+            if [[ -n "$existing_wt" ]]; then
+                branch_in_worktree="$existing_wt"
+            fi
+
+            if [[ -n "$branch_in_worktree" ]]; then
+                # Normalize both paths (git returns realpath, e.g. /private/var on macOS)
+                local real_workspaces_dir="${workspaces_dir:A}"
+                local real_branch_wt="${branch_in_worktree:A}"
+                local rel_path="${real_branch_wt#$real_workspaces_dir/}"
+                if [[ "$rel_path" != "$real_branch_wt" ]]; then
+                    # Path is under our workspaces dir — extract workspace/instance
+                    local existing_workspace="${rel_path%%/*}"
+                    local remaining="${rel_path#*/}"
+                    local existing_instance="${remaining%%/*}"
+
+                    # Only redirect within the same workspace
+                    if [[ "$existing_workspace" == "$workspace" ]]; then
+                        local existing_session=$(_grove_tmux_session_name "$existing_workspace" "$existing_instance")
+
+                        echo "Branch $branch_name already exists in workspace: $existing_workspace/$existing_instance"
+                        echo "Switching to existing workspace..."
+
+                        if tmux has-session -t "$existing_session" 2>/dev/null; then
+                            if [[ -n "$TMUX" ]]; then
+                                tmux switch-client -t "$existing_session"
+                            else
+                                tmux attach-session -t "$existing_session"
+                            fi
+                        else
+                            # Workspace dir exists but no tmux session — create one
+                            local existing_root="$workspaces_dir/$existing_workspace/$existing_instance"
+                            local existing_work_dir="$existing_root/${project_list[1]}"
+                            tmux new-session -d -s "$existing_session" -c "$existing_work_dir"
+                            if [[ -n "$TMUX" ]]; then
+                                tmux switch-client -t "$existing_session"
+                            else
+                                tmux attach-session -t "$existing_session"
+                            fi
+                        fi
+                        return 0
+                    fi
+                fi
+                # Branch exists elsewhere — fall through to creation
+                # (will fail with git error, which is the right thing)
+            fi
+        fi
+
+        # d. Create workspace root
         mkdir -p "$workspace_root"
 
-        # d. Create worktrees for each project
+        # e. Create worktrees for each project
         local creation_failed=0 wt_path this_remote
         for project in "${project_list[@]}"; do
             wt_path="$workspace_root/$project"
