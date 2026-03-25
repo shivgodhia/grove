@@ -168,10 +168,9 @@ _grove_tui_preview() {
     projects=$(_grove_resolve_workspace_projects "$ws_name" 2>/dev/null)
     local -a project_list=(${(s: :)projects})
 
-    echo "\e[1;36m[$ws_name]\e[0m"
     if (( ${#project_list} > 1 )); then
         echo "Type: multi-repo"
-        echo "Projects: ${(j:, :)project_list}"
+        echo "Repositories: ${(j:, :)project_list}"
     else
         echo "Type: single-repo"
     fi
@@ -260,6 +259,9 @@ _grove_tui() {
     local _grove_tui_script_dir="${${(%):-%x}:A:h}"
     local preview_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_preview \"\$1\"' -- {}"
 
+    # Extract workspace/instance for preview label: strip ANSI, grab fields 1 & 3
+    local label_cmd='echo " $(echo {} | sed '"'"'s/\x1b\[[0-9;]*m//g'"'"' | awk -F"\t" '"'"'{gsub(/^ *| *$/,"",$1); gsub(/^ *| *$/,"",$3); print $1 "/" $3}'"'"') "'
+
     # Main fzf screen with --expect to capture keybindings
     local result
     result=$(echo "$entries" | fzf \
@@ -271,6 +273,8 @@ _grove_tui() {
         --header-lines=1 \
         --preview="$preview_cmd" \
         --preview-window=right:40%:wrap \
+        --preview-label="" \
+        --bind="focus:transform-preview-label($label_cmd)" \
         --height=80% \
         --layout=reverse \
         --no-sort \
