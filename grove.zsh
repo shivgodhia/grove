@@ -503,6 +503,10 @@ HELP
             echo "Usage: gv --rm [--force] <workspace> <name>"
             return 1
         fi
+        # Strip branch prefix if the user provided the full branch name
+        if [[ -n "$GROVE_BRANCH_PREFIX" && "$instance" == "$GROVE_BRANCH_PREFIX/"* ]]; then
+            instance="${instance#$GROVE_BRANCH_PREFIX/}"
+        fi
         # Sanitize instance name for directory (replace / with -)
         local dir_name="${instance//\//-}"
         local workspace_root="$workspaces_dir/$workspace/$dir_name"
@@ -602,6 +606,12 @@ HELP
     shift 2 2>/dev/null
     local command=("$@")
 
+    # Strip branch prefix if the user provided the full branch name
+    # (e.g. "shivgodhia/add-search" → "add-search")
+    if [[ -n "$GROVE_BRANCH_PREFIX" && "$name" == "$GROVE_BRANCH_PREFIX/"* ]]; then
+        name="${name#$GROVE_BRANCH_PREFIX/}"
+    fi
+
     if [[ -z "$workspace" || -z "$name" ]]; then
         echo "Usage: gv <workspace> <name>              # attach to tmux session (creates workspace if needed)"
         echo "       gv <workspace> <name> <command>    # run command in workspace (no tmux)"
@@ -677,11 +687,11 @@ HELP
             local branch_in_worktree=""
             local existing_wt
             existing_wt=$(git -C "$projects_dir/${project_list[1]}" worktree list --porcelain 2>/dev/null | \
-                awk -v branch="$branch_name" '
+                awk -v branch="$branch_name" -v raw="$name" '
                     /^worktree / { wt = substr($0, 10) }
                     /^branch refs\/heads\// {
                         b = substr($0, 19)
-                        if (b == branch) print wt
+                        if (b == branch || b == raw) print wt
                     }
                 ')
             if [[ -n "$existing_wt" ]]; then
@@ -703,7 +713,7 @@ HELP
                     if [[ "$existing_workspace" == "$workspace" ]]; then
                         local existing_session=$(_grove_tmux_session_name "$existing_workspace" "$existing_instance")
 
-                        echo "Branch $branch_name already exists in workspace: $existing_workspace/$existing_instance"
+                        echo "Branch $name already exists in workspace: $existing_workspace/$existing_instance"
                         echo "Switching to existing workspace..."
 
                         if tmux has-session -t "$existing_session" 2>/dev/null; then
