@@ -277,9 +277,10 @@ _grove_tui_render_branch_tree() {
         local num_children=${#child_indices}
 
         # Helper: build │ bar pattern for PR/continuation lines
+        # Only show │ for columns to the LEFT of this node (col_depth)
         local _bars=""
         (( j = 0 ))
-        while (( j < total_cols )); do
+        while (( j < col_depth )); do
             _bars+="│ "
             (( j++ ))
         done
