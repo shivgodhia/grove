@@ -150,3 +150,47 @@ ztr test '
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'deep stack with side branch off middle'
+
+# ── Graphite chain with gaps: A -> [B] -> C -> [D] -> E ─────────────────
+# B and D are not in the worktree (they're in other worktrees).
+# E -> C -> A should form a linear chain:
+#   ○ testuser/branch-e
+#   ○ testuser/branch-c
+#   ○ testuser/branch-a
+
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    git -C "$wt_dir" checkout -b "testuser/branch-b" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "b" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "c" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "d" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-e" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "e" --quiet
+
+    # Write Graphite metadata
+    local _write_gt() {
+        local b="$1" p="$2"
+        local blob=$(echo "{\"parentBranchName\": \"$p\"}" | git -C "$wt_dir" hash-object -w --stdin)
+        git -C "$wt_dir" update-ref "refs/branch-metadata/$b" "$blob"
+    }
+    _write_gt "testuser/branch-a" "main"
+    _write_gt "testuser/branch-b" "testuser/branch-a"
+    _write_gt "testuser/branch-c" "testuser/branch-b"
+    _write_gt "testuser/branch-d" "testuser/branch-c"
+    _write_gt "testuser/branch-e" "testuser/branch-d"
+
+    # Remove B and D (simulate them being in other worktrees)
+    git -C "$wt_dir" checkout "testuser/branch-e" --quiet
+    git -C "$wt_dir" branch -D "testuser/branch-b" --quiet 2>/dev/null
+    git -C "$wt_dir" branch -D "testuser/branch-d" --quiet 2>/dev/null
+
+    local expected="○ testuser/branch-e
+○ testuser/branch-c
+○ testuser/branch-a"
+    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    [[ "$output" == "$expected" ]]
+' 'Graphite chain with gaps renders as linear stack'

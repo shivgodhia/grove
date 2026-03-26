@@ -139,3 +139,46 @@ ztr test '
     # C parent is B (created from B)
     [[ "$output" == *"testuser/branch-c|testuser/branch-b"* ]]
 ' 'switching back and forth preserves original parentage'
+
+# Graphite parent chain with gaps: A -> B -> C -> D -> E in Graphite metadata,
+# but only A, C, E are in the worktree. B and D exist in other worktrees.
+# Should resolve: E -> C (skipping D), C -> A (skipping B)
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    # Create all branches in the worktree first
+    git -C "$wt_dir" checkout -b "testuser/branch-b" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "b" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "c" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "d" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-e" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "e" --quiet
+
+    # Write Graphite metadata: A -> B -> C -> D -> E
+    local _write_gt() {
+        local b="$1" p="$2"
+        local blob=$(echo "{\"parentBranchName\": \"$p\"}" | git -C "$wt_dir" hash-object -w --stdin)
+        git -C "$wt_dir" update-ref "refs/branch-metadata/$b" "$blob"
+    }
+    _write_gt "testuser/branch-a" "main"
+    _write_gt "testuser/branch-b" "testuser/branch-a"
+    _write_gt "testuser/branch-c" "testuser/branch-b"
+    _write_gt "testuser/branch-d" "testuser/branch-c"
+    _write_gt "testuser/branch-e" "testuser/branch-d"
+
+    # Now delete B and D from the worktree (simulate them being in other worktrees)
+    git -C "$wt_dir" checkout "testuser/branch-e" --quiet
+    git -C "$wt_dir" branch -D "testuser/branch-b" --quiet 2>/dev/null
+    git -C "$wt_dir" branch -D "testuser/branch-d" --quiet 2>/dev/null
+
+    local output=$(_grove_worktree_branch_parents "$wt_dir")
+    # E parent should be C (nearest ancestor in set, skipping D)
+    [[ "$output" == *"testuser/branch-e|testuser/branch-c"* ]] &&
+    # C parent should be A (nearest ancestor in set, skipping B)
+    [[ "$output" == *"testuser/branch-c|testuser/branch-a"* ]] &&
+    # A is root
+    [[ "$output" == *"testuser/branch-a|"* ]]
+' 'Graphite parent chain with gaps resolves to nearest ancestor in set'

@@ -260,32 +260,38 @@ _grove_worktree_branch_parents() {
         (( i-- ))
     done
 
-    # Try Graphite branch-metadata for parentage (most reliable for gt-managed branches)
-    local -A gt_parent=()
-    local meta_content gt_parent_name
-    for b in "${wt_branches[@]}"; do
-        [[ -z "$b" ]] && continue
-        meta_content=$(git -C "$project_dir" cat-file -p "refs/branch-metadata/$b" 2>/dev/null)
-        if [[ -n "$meta_content" ]]; then
-            gt_parent_name=$(echo "$meta_content" | grep -o '"parentBranchName": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
-            if [[ -n "$gt_parent_name" ]]; then
-                gt_parent[$b]="$gt_parent_name"
-            fi
-        fi
-    done
+    # Resolve Graphite parent for a branch, walking up the chain until we find
+    # a branch that's in the worktree set (or hit main/root).
+    _resolve_gt_parent() {
+        local branch="$1" cur_parent meta_content steps=0
+        cur_parent="$branch"
+        while (( steps < 50 )); do
+            meta_content=$(git -C "$project_dir" cat-file -p "refs/branch-metadata/$cur_parent" 2>/dev/null)
+            [[ -z "$meta_content" ]] && break
+            cur_parent=$(echo "$meta_content" | grep -o '"parentBranchName": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+            [[ -z "$cur_parent" ]] && break
+            # Found one in our set
+            [[ -n "${branch_set[$cur_parent]+x}" ]] && echo "$cur_parent" && return 0
+            # Hit base branch (root)
+            [[ "$cur_parent" == "$base_branch_name" ]] && return 1
+            (( steps++ ))
+        done
+        return 1
+    }
 
     # Resolve final parent for each branch using priority:
-    # 1. Graphite metadata (if available and parent is in worktree set)
+    # 1. Graphite metadata (walk chain to find nearest ancestor in worktree set)
     # 2. Reflog-based parent (if named and in worktree set)
     # 3. Commit ancestry fallback (for branches with no other parent info)
-    local parent distance best_parent best_distance candidate
+    local parent distance best_parent best_distance candidate gt_resolved
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
         parent=""
 
-        # Try Graphite metadata first
-        if [[ -n "${gt_parent[$b]+x}" && -n "${branch_set[${gt_parent[$b]}]+x}" ]]; then
-            parent="${gt_parent[$b]}"
+        # Try Graphite metadata first (walks chain to find nearest in-set ancestor)
+        gt_resolved=$(_resolve_gt_parent "$b")
+        if [[ -n "$gt_resolved" ]]; then
+            parent="$gt_resolved"
         # Try reflog parent
         elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
             parent="${first_parent[$b]}"
