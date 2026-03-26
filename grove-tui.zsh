@@ -492,7 +492,7 @@ _grove_tui_preview() {
             # Collect tree lines first to find max prefix width for alignment
             # Format: bars\tprefix name
             tree_lines_arr=()
-            while read -r tree_line; do
+            while IFS= read -r tree_line; do
                 [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
             done < <(_grove_tui_render_branch_tree "$project_dir")
 
