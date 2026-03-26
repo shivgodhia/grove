@@ -87,20 +87,20 @@ _grove_tui_list_entries() {
     (( ${#:-Name} > max_inst )) && max_inst=${#:-Name}
 
     # Calculate max column widths based on terminal width
-    # fzf preview takes ~40%, so list area is ~60% of terminal
+    # fzf preview takes ~65%, so list area is ~35% of terminal
     local term_cols=${COLUMNS:-120}
-    local list_cols=$(( term_cols * 60 / 100 ))
+    local list_cols=$(( term_cols * 35 / 100 ))
     local tmux_col=4  # "Tmux" / "  ● "
     local gaps=4       # tab stops between columns
     local avail=$(( list_cols - tmux_col - gaps ))
 
     # Allocate: workspace gets its natural width (capped at 25%),
-    # then name and branch split the remainder
+    # then name and branch split the remainder evenly
     local max_ws_cap=$(( avail * 25 / 100 ))
     (( max_ws > max_ws_cap )) && max_ws=$max_ws_cap
     local remaining=$(( avail - max_ws ))
-    local max_inst_cap=$(( remaining * 45 / 100 ))
-    local max_br_cap=$(( remaining * 55 / 100 ))
+    local max_inst_cap=$(( remaining * 50 / 100 ))
+    local max_br_cap=$(( remaining * 50 / 100 ))
 
     # Clamp to caps (but don't expand beyond natural width)
     (( max_inst > max_inst_cap )) && max_inst=$max_inst_cap
@@ -647,7 +647,7 @@ _grove_tui() {
         --header="Grove  (enter: open  ctrl-n: new  del/ctrl-x: remove)" \
         --header-lines=1 \
         --preview="$preview_cmd" \
-        --preview-window=right:40%:wrap \
+        --preview-window=right:65%:wrap \
         --preview-label="" \
         --bind="focus:transform-preview-label($label_cmd)" \
         --height=80% \
