@@ -277,13 +277,27 @@ _grove_tui_render_branch_tree() {
         local num_children=${#child_indices}
 
         # Helper: build │ bar pattern for PR/continuation lines
-        # Only show │ for columns to the LEFT of this node (col_depth)
+        # Columns 0..col_depth-1: │ (from ancestor forks)
+        # Column col_depth: space (the node's own position)
+        # Columns col_depth+1..total_cols: │ (side branches from this node's parent fork)
         local _bars=""
-        (( j = 0 ))
-        while (( j < col_depth )); do
-            _bars+="│ "
-            (( j++ ))
-        done
+        if (( total_cols > col_depth )); then
+            (( j = 0 ))
+            while (( j <= total_cols )); do
+                if (( j == col_depth )); then
+                    _bars+="  "
+                else
+                    _bars+="│ "
+                fi
+                (( j++ ))
+            done
+        elif (( col_depth > 0 )); then
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                _bars+="│ "
+                (( j++ ))
+            done
+        fi
 
         if (( num_children == 0 )); then
             # Leaf node
