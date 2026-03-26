@@ -467,15 +467,34 @@ _grove_tui_preview() {
 
             echo "\e[0;33m${project}\e[0m  ${status_line}"
 
-            # Render branch tree
+            # Collect tree lines first to find max prefix width for alignment
+            local -a tree_lines_arr=()
             while read -r tree_line; do
-                [[ -z "$tree_line" ]] && continue
+                [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
+            done < <(_grove_tui_render_branch_tree "$project_dir")
 
-                # Extract branch name: everything after the last "○" connector + space
-                # Formats: "○ name", "│ ○ name", "○─┘ name", "○─┴─┘ name"
-                # The name always follows the last space in the line
+            # Find max prefix width (everything before the branch name)
+            local max_prefix_len=0 prefix_part
+            for tree_line in "${tree_lines_arr[@]}"; do
+                prefix_part="${tree_line% *}"
+                # Count display width: each char in prefix is 1 column
+                local plen=${#prefix_part}
+                (( plen > max_prefix_len )) && max_prefix_len=$plen
+            done
+
+            # Render each line with aligned branch names
+            for tree_line in "${tree_lines_arr[@]}"; do
                 b="${tree_line##* }"
                 indent="${tree_line% *}"
+
+                # Pad prefix to max width
+                local pad_count=$(( max_prefix_len - ${#indent} ))
+                local padding=""
+                local p=0
+                while (( p < pad_count )); do
+                    padding+=" "
+                    (( p++ ))
+                done
 
                 # Build colored version of the line (replace ○ with marker)
                 marker="○"
@@ -497,11 +516,16 @@ _grove_tui_preview() {
                 # Replace ○ in indent with colored marker
                 local colored_indent="${indent//○/${marker}}"
 
-                echo "  ${colored_indent} \e[0;32m${b}\e[0m${suffix}"
-                # PR line: replace all drawing chars with spaces for alignment
-                local pr_indent="${indent//[○│─┘┴]/ }"
-                echo "  ${pr_indent}  ${pr_display}"
-            done < <(_grove_tui_render_branch_tree "$project_dir")
+                echo "  ${colored_indent}${padding} \e[0;32m${b}\e[0m${suffix}"
+                # PR line: all spaces, no │ bars
+                local pr_spaces=""
+                p=0
+                while (( p < max_prefix_len )); do
+                    pr_spaces+=" "
+                    (( p++ ))
+                done
+                echo "  ${pr_spaces}   ${pr_display}"
+            done
             echo ""
         fi
     done
