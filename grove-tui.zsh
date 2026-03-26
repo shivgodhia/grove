@@ -517,14 +517,15 @@ _grove_tui_preview() {
                 local colored_indent="${indent//○/${marker}}"
 
                 echo "  ${colored_indent}${padding} \e[0;32m${b}\e[0m${suffix}"
-                # PR line: all spaces, no │ bars
-                local pr_spaces=""
+                # PR line: keep │ bars from indent, replace everything else with spaces
+                local pr_indent="${indent//[○─┘┴]/ }"
+                local pr_pad=""
                 p=0
-                while (( p < max_prefix_len )); do
-                    pr_spaces+=" "
+                while (( p < pad_count )); do
+                    pr_pad+=" "
                     (( p++ ))
                 done
-                echo "  ${pr_spaces}   ${pr_display}"
+                echo "  ${pr_indent}${pr_pad}   ${pr_display}"
             done
             echo ""
         fi
