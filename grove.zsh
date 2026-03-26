@@ -207,8 +207,30 @@ _grove_worktree_branch_parents() {
     # The first "checkout: moving from <parent> to <branch>" for each branch
     # is when it was created (or first checked out). The <parent> is the branch
     # it was branched from.
+    #
+    # Special case: the worktree's initial branch (first "from" in the earliest
+    # checkout entry) was set up by git worktree add, not by checkout. Mark it
+    # as a root so switching back to it later doesn't set a false parent.
     local -A first_parent=()
+    local initial_branch=""
     local from to i
+
+    # Find the initial branch (the "from" of the very first checkout entry)
+    i=${#reflog_lines}
+    while (( i >= 1 )); do
+        reflog_line="${reflog_lines[$i]}"
+        if [[ "$reflog_line" == checkout:* ]]; then
+            initial_branch="${reflog_line#checkout: moving from }"
+            initial_branch="${initial_branch%% to *}"
+            [[ "$initial_branch" =~ ^[0-9a-f]{40}$ ]] && initial_branch=""
+            [[ "$initial_branch" == "HEAD" ]] && initial_branch=""
+            break
+        fi
+        (( i-- ))
+    done
+    # Mark initial branch as root
+    [[ -n "$initial_branch" ]] && first_parent[$initial_branch]="__ROOT__"
+
     i=${#reflog_lines}
     while (( i >= 1 )); do
         reflog_line="${reflog_lines[$i]}"
@@ -224,21 +246,23 @@ _grove_worktree_branch_parents() {
             [[ "$to" == "HEAD" ]] && to=""
 
             # Record first parent for each branch (only first occurrence)
+            # Store the raw parent even if it's base branch or outside set
             if [[ -n "$to" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
-                first_parent[$to]="$from"
+                first_parent[$to]="${from:-__ROOT__}"
             fi
         fi
         (( i-- ))
     done
 
-    # For branches with no reflog-based parent (or parent outside the set),
+    # For branches with no reflog-based parent at all (e.g., Graphite rebase-created),
     # fall back to commit ancestry: find the closest ancestor branch.
+    # Branches that HAVE a reflog parent (even if it's main/outside set) are genuine roots.
     local parent distance best_parent best_distance candidate
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
         parent="${first_parent[$b]}"
-        # If parent is base branch or not in our worktree set, try ancestry
-        if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
+        if [[ -z "${first_parent[$b]+x}" ]]; then
+            # No reflog entry at all — use ancestry fallback
             best_parent=""
             best_distance=999999
             for candidate in "${wt_branches[@]}"; do
@@ -252,6 +276,12 @@ _grove_worktree_branch_parents() {
                 fi
             done
             parent="$best_parent"
+        else
+            # Has a reflog parent — resolve it
+            # If parent is __ROOT__, base branch, or not in our set, it's a root
+            if [[ "$parent" == "__ROOT__" || "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
+                parent=""
+            fi
         fi
         echo "${b}|${parent}"
     done

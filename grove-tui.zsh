@@ -157,8 +157,15 @@ _grove_tui_label() {
 
 # ─── Branch tree helper ───────────────────────────────────────────────────────
 # Render branches as a tree based on commit ancestry.
-# Usage: _grove_tui_render_branch_tree <project_dir>
-# Outputs lines of "depth|branch_name" for display.
+# Usage: _grove_tui_render_branch_tree <project_dir> [branch1 branch2 ...]
+# Output format: one line per branch with tree-drawing prefix, e.g.:
+#   ○ branch-d          (top of linear stack)
+#   ○ branch-c
+#   │ ○ branch-e        (side branch off branch-b)
+#   ○ branch-b
+#   ○ branch-a          (root)
+#
+# Linear stacks stay at the same indent. Side branches get │ prefix.
 # Children appear before parents (leaves at top, roots at bottom).
 _grove_tui_render_branch_tree() {
     local project_dir="$1"
@@ -182,61 +189,119 @@ _grove_tui_render_branch_tree() {
         done < <(_grove_worktree_branch_parents "$project_dir")
     fi
 
-    # Compute depth for each branch by walking up the parent chain
-    local -a depths=()
-    local i j cur_name cur_depth steps found_parent
+    local i j
+
+    # Find children for each branch (by index)
+    # children_of_N = space-separated child indices
+    local -a children_lists=()
     (( i = 1 ))
     while (( i <= ${#names} )); do
-        cur_name="${parents[$i]}"
-        (( cur_depth = 0 ))
-        (( steps = 0 ))
-        while [[ -n "$cur_name" ]] && (( steps < 50 )); do
-            (( cur_depth++ ))
-            (( steps++ ))
-            found_parent=""
-            (( j = 1 ))
-            while (( j <= ${#names} )); do
-                if [[ "${names[$j]}" == "$cur_name" ]]; then
-                    found_parent="${parents[$j]}"
-                    break
-                fi
-                (( j++ ))
-            done
-            cur_name="$found_parent"
-        done
-        depths+=("$cur_depth")
-        (( i++ ))
-    done
-
-    # Sort by depth descending (deepest/leaves first)
-    local -a order=()
-    (( i = 1 ))
-    while (( i <= ${#names} )); do
-        order+=("$i")
-        (( i++ ))
-    done
-
-    local swapped temp
-    (( swapped = 1 ))
-    while (( swapped )); do
-        (( swapped = 0 ))
-        (( i = 1 ))
-        while (( i < ${#order} )); do
-            (( j = i + 1 ))
-            if (( depths[order[i]] < depths[order[j]] )); then
-                temp="${order[$i]}"
-                order[$i]="${order[$j]}"
-                order[$j]="$temp"
-                (( swapped = 1 ))
+        local kids=""
+        (( j = 1 ))
+        while (( j <= ${#names} )); do
+            if [[ "${parents[$j]}" == "${names[$i]}" ]]; then
+                [[ -n "$kids" ]] && kids+=" "
+                kids+="$j"
             fi
-            (( i++ ))
+            (( j++ ))
         done
+        children_lists+=("$kids")
+        (( i++ ))
     done
 
-    # Output all branches
-    local idx
-    for idx in "${order[@]}"; do
-        echo "${depths[$idx]}|${names[$idx]}"
+    # Find roots (branches with no parent)
+    local -a roots=()
+    (( i = 1 ))
+    while (( i <= ${#names} )); do
+        [[ -z "${parents[$i]}" ]] && roots+=("$i")
+        (( i++ ))
+    done
+
+    # Walk a node and its descendants, outputting lines.
+    # prefix: the tree-drawing characters to prepend (e.g., "│ ")
+    # For each node with children:
+    #   - First child continues the "main line" (same prefix)
+    #   - Additional children are "side branches" (get "│ " prefix)
+    # Output is children first (leaves at top), then the node itself.
+    local -a output_lines=()
+
+    # Compute max descendant chain depth for a node
+    _chain_depth() {
+        local idx="$1"
+        local kids="${children_lists[$idx]}"
+        if [[ -z "$kids" ]]; then
+            echo "0"
+            return
+        fi
+        local max_d=0 child_d
+        local ci
+        for ci in ${(s: :)kids}; do
+            child_d=$(_chain_depth "$ci")
+            (( child_d + 1 > max_d )) && (( max_d = child_d + 1 ))
+        done
+        echo "$max_d"
+    }
+
+    _tree_walk() {
+        local node_idx="$1" prefix="$2"
+        local node_name="${names[$node_idx]}"
+        local kids="${children_lists[$node_idx]}"
+        local -a child_indices=()
+        if [[ -n "$kids" ]]; then
+            child_indices=(${(s: :)kids})
+        fi
+
+        if (( ${#child_indices} == 0 )); then
+            # Leaf node
+            output_lines+=("${prefix}○ ${node_name}")
+        elif (( ${#child_indices} == 1 )); then
+            # Single child — continues the main line (same prefix)
+            _tree_walk "${child_indices[1]}" "$prefix"
+            output_lines+=("${prefix}○ ${node_name}")
+        else
+            # Multiple children — sort by chain depth (deepest first = main line)
+            local -a sorted_children=()
+            local -a child_depths=()
+            local ci cd
+            for ci in "${child_indices[@]}"; do
+                cd=$(_chain_depth "$ci")
+                sorted_children+=("$ci")
+                child_depths+=("$cd")
+            done
+            # Find the main child: deepest chain wins; ties broken by higher index
+            # (higher index = created earlier per reflog order)
+            local main_idx="${sorted_children[1]}" main_depth="${child_depths[1]}"
+            local si
+            (( si = 2 ))
+            while (( si <= ${#sorted_children} )); do
+                if (( child_depths[si] > main_depth )) || \
+                   (( child_depths[si] == main_depth && sorted_children[si] > main_idx )); then
+                    main_idx="${sorted_children[$si]}"
+                    main_depth="${child_depths[$si]}"
+                fi
+                (( si++ ))
+            done
+
+            # Main child continues the line
+            _tree_walk "$main_idx" "$prefix"
+            # Side branches
+            for ci in "${sorted_children[@]}"; do
+                [[ "$ci" == "$main_idx" ]] && continue
+                _tree_walk "$ci" "${prefix}│ "
+            done
+            output_lines+=("${prefix}○ ${node_name}")
+        fi
+    }
+
+    # Walk each root
+    for i in "${roots[@]}"; do
+        _tree_walk "$i" ""
+    done
+
+    # Output all lines
+    local l
+    for l in "${output_lines[@]}"; do
+        echo "$l"
     done
 }
 
@@ -341,7 +406,7 @@ _grove_tui_preview() {
     }
 
     # Per-project details with all branches
-    local status_line pr_data pr_display tree_line depth indent d marker suffix pr_key
+    local status_line pr_data pr_display tree_line indent marker suffix pr_key pr_indent
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -363,18 +428,14 @@ _grove_tui_preview() {
             # Render branch tree
             while read -r tree_line; do
                 [[ -z "$tree_line" ]] && continue
-                depth="${tree_line%%|*}"
-                b="${tree_line#*|}"
 
-                # Build indent from depth
-                indent=""
-                (( d = 0 ))
-                while (( d < depth )); do
-                    indent+="│ "
-                    (( d++ ))
-                done
+                # Extract prefix (tree-drawing chars) and branch name
+                # Line format: "[│ ]...○ branch-name"
+                # Split on "○ " to get prefix and name
+                indent="${tree_line%%○ *}"
+                b="${tree_line#*○ }"
 
-                # Prefix: ▸ for HEAD, space otherwise
+                # Replace ○ with appropriate marker
                 marker="○"
                 suffix=""
                 if [[ "$b" == "$head_branch" ]]; then
@@ -382,7 +443,7 @@ _grove_tui_preview() {
                     suffix="  \e[0;90m← HEAD\e[0m"
                 fi
 
-                # PR status — check branch itself, then its alias
+                # PR status
                 pr_data=""
                 pr_key="${project}:${b}"
                 if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then
@@ -391,8 +452,12 @@ _grove_tui_preview() {
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
+                # Compute PR indent (same prefix but with spaces replacing tree chars)
+                local pr_indent="${indent//│/ }"
+                pr_indent="${pr_indent//○/ }"
+
                 echo "  ${indent}${marker} \e[0;32m${b}\e[0m${suffix}"
-                echo "  ${indent}  ${pr_display}"
+                echo "  ${pr_indent}  ${pr_display}"
             done < <(_grove_tui_render_branch_tree "$project_dir")
             echo ""
         fi
