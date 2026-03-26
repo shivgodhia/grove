@@ -382,6 +382,107 @@ _grove_tui_render_branch_tree() {
     done
 }
 
+# Colorize a rendered tree prefix using a depth-cycled rainbow palette.
+# Input is the "prefix" portion from _grove_tui_render_branch_tree output,
+# for example: "│ │ ○─┴─┘".
+_grove_tui_colorize_tree_prefix() {
+    local prefix="$1"
+    local marker="$2"
+
+    local c_reset=$'\e[0m'
+    local -a c_rainbow=(
+        $'\e[38;2;76;203;241m'   # #4ccbf1
+        $'\e[38;2;77;201;125m'   # #4dc97d
+        $'\e[38;2;110;172;39m'   # #6eac27
+        $'\e[38;2;245;200;1m'    # #f5c801
+        $'\e[38;2;248;144;73m'   # #f89049
+        $'\e[38;2;244;98;81m'    # #f46251
+        $'\e[38;2;235;129;188m'  # #eb81bc
+        $'\e[38;2;235;129;188m'  # #eb81bc
+        $'\e[38;2;80;132;242m'   # #5084f2
+    )
+    local rainbow_len=${#c_rainbow}
+
+    local out=""
+    local pos=1
+    local depth=0
+    local color_idx color ch
+
+    # Color each leading "│ " column by depth.
+    while [[ "$prefix[$pos,$((pos + 1))]" == "│ " ]]; do
+        color_idx=$(( (depth % rainbow_len) + 1 ))
+        color="${c_rainbow[$color_idx]}"
+        out+="${color}│${c_reset} "
+        (( pos += 2 ))
+        (( depth++ ))
+    done
+
+    # Color the node marker in the current depth color unless caller already
+    # passed an ANSI-colored marker (used for HEAD).
+    ch="$prefix[$pos]"
+    if [[ "$ch" == "○" || "$ch" == "◉" ]]; then
+        if [[ "$marker" == *$'\e['* ]]; then
+            out+="$marker"
+        else
+            color_idx=$(( (depth % rainbow_len) + 1 ))
+            color="${c_rainbow[$color_idx]}"
+            out+="${color}${marker}${c_reset}"
+        fi
+        (( pos++ ))
+    fi
+
+    # Color fork connectors (─┴┘│) lane-by-lane.
+    # Horizontal segments use current lane; ┴/┘ step into the next lane color.
+    local connector_depth="$depth"
+    while (( pos <= ${#prefix} )); do
+        ch="$prefix[$pos]"
+        case "$ch" in
+            "┴"|"┘")
+                (( connector_depth++ ))
+                color_idx=$(( (connector_depth % rainbow_len) + 1 ))
+                color="${c_rainbow[$color_idx]}"
+                out+="${color}${ch}${c_reset}"
+                ;;
+            "─"|"│")
+                color_idx=$(( (connector_depth % rainbow_len) + 1 ))
+                color="${c_rainbow[$color_idx]}"
+                out+="${color}${ch}${c_reset}"
+                ;;
+            *)
+                out+="$ch"
+                ;;
+        esac
+        (( pos++ ))
+    done
+
+    echo "$out"
+}
+
+# Return the rainbow color escape for a tree prefix's node depth.
+# Depth is the count of leading "│ " columns.
+_grove_tui_tree_depth_color() {
+    local prefix="$1"
+    local -a c_rainbow=(
+        $'\e[38;2;76;203;241m'   # #4ccbf1
+        $'\e[38;2;77;201;125m'   # #4dc97d
+        $'\e[38;2;110;172;39m'   # #6eac27
+        $'\e[38;2;245;200;1m'    # #f5c801
+        $'\e[38;2;248;144;73m'   # #f89049
+        $'\e[38;2;244;98;81m'    # #f46251
+        $'\e[38;2;235;129;188m'  # #eb81bc
+        $'\e[38;2;235;129;188m'  # #eb81bc
+        $'\e[38;2;80;132;242m'   # #5084f2
+    )
+    local depth=0
+    local pos=1
+    while [[ "$prefix[$pos,$((pos + 1))]" == "│ " ]]; do
+        (( depth++ ))
+        (( pos += 2 ))
+    done
+    local idx=$(( (depth % ${#c_rainbow}) + 1 ))
+    echo "${c_rainbow[$idx]}"
+}
+
 # ─── Preview ─────────────────────────────────────────────────────────────────
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
@@ -487,7 +588,7 @@ _grove_tui_preview() {
     # Per-project details with all branches
     local status_line pr_data pr_display tree_line indent marker suffix pr_key
     local -a tree_lines_arr
-    local tree_prefix colored_prefix b max_prefix_len pad_count padding p
+    local tree_prefix colored_prefix b max_prefix_len pad_count padding p branch_color
     local max_branch_detail_len branch_detail_len pr_pad_count pr_padding
     local head_plain
     for project_dir in "$instance_dir"/*(N/); do
@@ -550,7 +651,8 @@ _grove_tui_preview() {
                 else
                     head_plain=""
                 fi
-                colored_prefix="${tree_prefix//○/${marker}}"
+                colored_prefix=$(_grove_tui_colorize_tree_prefix "$tree_prefix" "$marker")
+                branch_color=$(_grove_tui_tree_depth_color "$tree_prefix")
                 pad_count=$(( max_prefix_len - ${#tree_prefix} ))
                 padding=""
                 p=0
@@ -577,7 +679,7 @@ _grove_tui_preview() {
                     (( p++ ))
                 done
 
-                echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}${pr_padding}  ${pr_display}"
+                echo "  ${colored_prefix}${padding} ${branch_color}${b}\e[0m${suffix}${pr_padding}  ${pr_display}"
             done
             echo ""
         fi

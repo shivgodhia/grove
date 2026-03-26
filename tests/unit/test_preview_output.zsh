@@ -77,6 +77,23 @@ ztr test '
     [[ "$output" == *"testuser/branch-d"* ]]
 ' 'stacked branches preview has no leaks and shows all branches'
 
+# Tree connectors use rainbow depth colors in preview
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    git -C "$wt_dir" checkout -b "testuser/branch-b" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "b" --quiet
+    git -C "$wt_dir" checkout "testuser/branch-a" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "c" --quiet
+
+    local output=$(_test_preview myapp branch-a)
+    # Rainbow palette (truecolor ANSI) appears in tree connectors
+    [[ "$output" == *$'"'"'\e[38;2;76;203;241m'"'"'* ]] &&
+    [[ "$output" == *$'"'"'\e[38;2;77;201;125m'"'"'* ]]
+' 'preview tree connectors use rainbow depth colors'
+
 # Multi-project preview has no leaks
 ztr test '
     create_test_repo frontend
