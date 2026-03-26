@@ -246,9 +246,10 @@ _grove_worktree_branch_parents() {
             [[ "$to" == "HEAD" ]] && to=""
 
             # Record first parent for each branch (only first occurrence)
-            # Store the raw parent even if it's base branch or outside set
-            if [[ -n "$to" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
-                first_parent[$to]="${from:-__ROOT__}"
+            # Store the raw parent; if from is empty (was a SHA), skip so
+            # ancestry fallback can find the real parent later
+            if [[ -n "$to" && -n "$from" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
+                first_parent[$to]="$from"
             fi
         fi
         (( i-- ))
