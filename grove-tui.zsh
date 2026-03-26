@@ -155,6 +155,52 @@ _grove_tui_label() {
     echo " [${REPLY_WS}]/${REPLY_INST} | ${t} "
 }
 
+# ─── Branch sorting helper ────────────────────────────────────────────────────
+# Sort branches by commit topology: topmost (child) first.
+# Usage: _grove_tui_sort_branches <project_dir> branch1 branch2 ...
+# Outputs sorted branches, one per line.
+_grove_tui_sort_branches() {
+    local project_dir="$1"
+    shift
+    local -a branches=("$@") sorted=() remaining=("$@")
+    local found i j is_top
+
+    while (( ${#remaining} > 0 )); do
+        found=""
+        (( i = 1 ))
+        while (( i <= ${#remaining} )); do
+            (( is_top = 1 ))
+            (( j = 1 ))
+            while (( j <= ${#remaining} )); do
+                if (( i != j )) && [[ -n "${remaining[$i]}" && -n "${remaining[$j]}" ]]; then
+                    if git -C "$project_dir" merge-base --is-ancestor "${remaining[$i]}" "${remaining[$j]}" 2>/dev/null; then
+                        (( is_top = 0 ))
+                        break
+                    fi
+                fi
+                (( j++ ))
+            done
+            if (( is_top )); then
+                found="${remaining[$i]}"
+                remaining[$i]=""
+                remaining=("${(@)remaining:#}")
+                break
+            fi
+            (( i++ ))
+        done
+        if [[ -z "$found" ]]; then
+            sorted+=("${remaining[@]}")
+            break
+        fi
+        sorted+=("$found")
+    done
+
+    local b
+    for b in "${sorted[@]}"; do
+        [[ -n "$b" ]] && echo "$b"
+    done
+}
+
 # ─── Preview ─────────────────────────────────────────────────────────────────
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
@@ -182,39 +228,88 @@ _grove_tui_preview() {
     fi
     echo ""
 
-    # Kick off parallel PR status fetches for all projects
+    # Collect all branches per project and kick off parallel PR fetches
     local -A pr_tmpfiles=()
-    local project_dir project branch repo_url
+    local project_dir project branch repo_url head_branch
+    local -a all_branches
+    local tmpf b
+
     if command -v gh &>/dev/null; then
         for project_dir in "$instance_dir"/*(N/); do
             project="${project_dir:t}"
             [[ "$project" == .* ]] && continue
             if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
-                branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
                 repo_url=$(git -C "$project_dir" remote get-url origin 2>/dev/null)
-                if [[ -n "$branch" && -n "$repo_url" ]]; then
-                    local tmpf=$(mktemp)
-                    pr_tmpfiles[$project]="$tmpf"
-                    gh pr view "$branch" --repo "$repo_url" \
-                        --json state,mergeable,reviewDecision,statusCheckRollup \
-                        --jq '{state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
+                all_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+                for b in "${all_branches[@]}"; do
+                    [[ -z "$b" ]] && continue
+                    tmpf=$(mktemp)
+                    pr_tmpfiles["${project}:${b}"]="$tmpf"
+                    gh pr view "$b" --repo "$repo_url" \
+                        --json number,url,state,mergeable,reviewDecision,statusCheckRollup \
+                        --jq '{number, url, state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
                         > "$tmpf" 2>/dev/null &
-                fi
+                done
             fi
         done
         wait
     fi
 
-    # Per-project details
-    local last_commit status_line pr_info
-    local pr_state pr_mergeable pr_review pr_ci_status pr_data
-    local pr_state_display pr_review_display pr_merge_display pr_ci_display
+    # Helper: format PR status from fetched data
+    _grove_tui_format_pr() {
+        local pr_data="$1"
+        if [[ -z "$pr_data" ]]; then
+            echo "\e[0;90mNo PR\e[0m"
+            return
+        fi
+        local pr_state pr_mergeable pr_review pr_ci_status pr_number pr_url
+        pr_state=$(echo "$pr_data" | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4)
+        pr_number=$(echo "$pr_data" | grep -o '"number":[0-9]*' | head -1 | cut -d: -f2)
+        pr_url=$(echo "$pr_data" | grep -o '"url":"[^"]*"' | head -1 | cut -d'"' -f4)
+        pr_mergeable=$(echo "$pr_data" | grep -o '"mergeable":"[^"]*"' | head -1 | cut -d'"' -f4)
+        pr_review=$(echo "$pr_data" | grep -o '"reviewDecision":"[^"]*"' | head -1 | cut -d'"' -f4)
+        pr_ci_status=$(echo "$pr_data" | grep -o '"ci":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        # PR number as clickable link (OSC 8 hyperlink)
+        local result=""
+        if [[ -n "$pr_number" && -n "$pr_url" ]]; then
+            result+="\e]8;;${pr_url}\e\\PR #${pr_number}\e]8;;\e\\"
+        else
+            result+="PR"
+        fi
+        result+="  "
+        case "$pr_state" in
+            OPEN)    result+="\e[0;32mOpen\e[0m" ;;
+            MERGED)  result+="\e[0;35mMerged\e[0m" ;;
+            CLOSED)  result+="\e[0;31mClosed\e[0m" ;;
+            *)       result+="$pr_state" ;;
+        esac
+        case "$pr_review" in
+            APPROVED)          result+="  \e[0;32m✓ Approved\e[0m" ;;
+            CHANGES_REQUESTED) result+="  \e[0;31m✗ Changes requested\e[0m" ;;
+            REVIEW_REQUIRED)   result+="  \e[0;33m● Review required\e[0m" ;;
+        esac
+        case "$pr_mergeable" in
+            MERGEABLE)   result+="  \e[0;32m↑ Mergeable\e[0m" ;;
+            CONFLICTING) result+="  \e[0;31m⚡ Conflicts\e[0m" ;;
+        esac
+        case "$pr_ci_status" in
+            FAILURE) result+="  \e[0;31m✗ CI failing\e[0m" ;;
+            PENDING) result+="  \e[0;33m● CI running\e[0m" ;;
+            SUCCESS) result+="  \e[0;32m✓ CI passed\e[0m" ;;
+        esac
+        echo "$result"
+    }
+
+    # Per-project details with all branches
+    local status_line pr_data pr_display
+    local -a sorted_branches
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
         if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
-            branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
-            last_commit=$(git -C "$project_dir" log -1 --format="%h %s" 2>/dev/null)
+            head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+            all_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
 
             # Check dirty status
             if ! git -C "$project_dir" diff --quiet 2>/dev/null || \
@@ -225,55 +320,32 @@ _grove_tui_preview() {
                 status_line="\e[0;32m[clean]\e[0m"
             fi
 
-            # Read PR status from parallel fetch
-            pr_info=""
-            if [[ -n "${pr_tmpfiles[$project]}" ]]; then
-                pr_data=$(<"${pr_tmpfiles[$project]}")
-                rm -f "${pr_tmpfiles[$project]}"
-                if [[ -n "$pr_data" ]]; then
-                    pr_state=$(echo "$pr_data" | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4)
-                    pr_mergeable=$(echo "$pr_data" | grep -o '"mergeable":"[^"]*"' | head -1 | cut -d'"' -f4)
-                    pr_review=$(echo "$pr_data" | grep -o '"reviewDecision":"[^"]*"' | head -1 | cut -d'"' -f4)
-                    pr_ci_status=$(echo "$pr_data" | grep -o '"ci":"[^"]*"' | head -1 | cut -d'"' -f4)
-
-                    pr_state_display=""
-                    case "$pr_state" in
-                        OPEN)    pr_state_display="\e[0;32mOpen\e[0m" ;;
-                        MERGED)  pr_state_display="\e[0;35mMerged\e[0m" ;;
-                        CLOSED)  pr_state_display="\e[0;31mClosed\e[0m" ;;
-                        *)       pr_state_display="$pr_state" ;;
-                    esac
-
-                    pr_review_display=""
-                    case "$pr_review" in
-                        APPROVED)          pr_review_display="  \e[0;32m✓ Approved\e[0m" ;;
-                        CHANGES_REQUESTED) pr_review_display="  \e[0;31m✗ Changes requested\e[0m" ;;
-                        REVIEW_REQUIRED)   pr_review_display="  \e[0;33m● Review required\e[0m" ;;
-                    esac
-
-                    pr_merge_display=""
-                    case "$pr_mergeable" in
-                        MERGEABLE)   pr_merge_display="  \e[0;32m↑ Mergeable\e[0m" ;;
-                        CONFLICTING) pr_merge_display="  \e[0;31m⚡ Conflicts\e[0m" ;;
-                    esac
-
-                    pr_ci_display=""
-                    case "$pr_ci_status" in
-                        FAILURE) pr_ci_display="  \e[0;31m✗ CI failing\e[0m" ;;
-                        PENDING) pr_ci_display="  \e[0;33m● CI running\e[0m" ;;
-                        SUCCESS) pr_ci_display="  \e[0;32m✓ CI passed\e[0m" ;;
-                    esac
-
-                    pr_info="  PR:     ${pr_state_display}${pr_review_display}${pr_merge_display}${pr_ci_display}"
-                else
-                    pr_info="  PR:     \e[0;90mNo PR\e[0m"
-                fi
-            fi
-
             echo "\e[0;33m${project}\e[0m  ${status_line}"
-            echo "  Branch: \e[0;32m${branch}\e[0m"
-            echo "  Last:   ${last_commit}"
-            [[ -n "$pr_info" ]] && echo "$pr_info"
+
+            # Sort branches by commit topology (topmost first)
+            sorted_branches=("${(@f)$(_grove_tui_sort_branches "$project_dir" "${all_branches[@]}")}")
+            local num_branches=${#sorted_branches}
+            local idx=1
+            for b in "${sorted_branches[@]}"; do
+                [[ -z "$b" ]] && continue
+
+                # Prefix: ▸ for HEAD, space otherwise
+                local prefix="  " suffix=""
+                [[ "$b" == "$head_branch" ]] && prefix="\e[1;37m▸ \e[0m" && suffix="  \e[0;90m← HEAD\e[0m"
+
+                # PR status
+                pr_data=""
+                local pr_key="${project}:${b}"
+                if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then
+                    pr_data=$(<"${pr_tmpfiles["$pr_key"]}")
+                    rm -f "${pr_tmpfiles["$pr_key"]}"
+                fi
+                pr_display=$(_grove_tui_format_pr "$pr_data")
+
+                echo "${prefix}\e[0;32m${b}\e[0m${suffix}"
+                echo "    ${pr_display}"
+                (( idx++ ))
+            done
             echo ""
         fi
     done

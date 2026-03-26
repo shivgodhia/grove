@@ -129,6 +129,43 @@ _grove_is_multi_project() {
     (( ${#project_list} > 1 ))
 }
 
+# Collect all branches that have been checked out in a worktree.
+# Uses HEAD + reflog history. Filters out base branch and detached HEAD.
+# Usage: _grove_worktree_branches <project_dir>
+# Outputs newline-separated branch names (deduplicated).
+_grove_worktree_branches() {
+    local project_dir="$1"
+    local base_branch_name="${GROVE_BASE_BRANCH#origin/}"
+    local -a wt_branches=()
+
+    local head_branch
+    head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    if [[ -n "$head_branch" && "$head_branch" != "HEAD" ]]; then
+        wt_branches+=("$head_branch")
+    fi
+
+    local reflog_line from to
+    while read -r reflog_line; do
+        if [[ "$reflog_line" == checkout:* ]]; then
+            from="${reflog_line#checkout: moving from }"
+            from="${from%% to *}"
+            to="${reflog_line##* to }"
+            [[ -n "$from" ]] && wt_branches+=("$from")
+            [[ -n "$to" ]] && wt_branches+=("$to")
+        fi
+    done < <(git -C "$project_dir" reflog --format="%gs" 2>/dev/null)
+
+    # Deduplicate and filter out base branch and raw SHAs
+    wt_branches=(${(u)wt_branches})
+    local b
+    for b in "${wt_branches[@]}"; do
+        [[ "$b" == "$base_branch_name" ]] && continue
+        # Skip raw commit SHAs (40-char hex strings)
+        [[ "$b" =~ ^[0-9a-f]{40}$ ]] && continue
+        echo "$b"
+    done
+}
+
 # Resolve branch name, checking for conflicts on remote.
 # If $GROVE_BRANCH_PREFIX/$name conflicts with any repo, use date-prefixed version.
 # Outputs the resolved branch name.
@@ -553,33 +590,15 @@ HELP
                 continue
             fi
             if [[ -d "$GROVE_PROJECTS_DIR/$project/.git" ]]; then
-                # Collect all branches checked out in this worktree (HEAD + reflog history)
-                local -a wt_branches=()
+                local -a wt_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
                 local head_branch
                 head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
-                if [[ -n "$head_branch" && "$head_branch" != "HEAD" ]]; then
-                    wt_branches+=("$head_branch")
-                fi
-                local reflog_line
-                git -C "$project_dir" reflog --format="%gs" 2>/dev/null | while read -r reflog_line; do
-                    if [[ "$reflog_line" == checkout:* ]]; then
-                        local from="${reflog_line#checkout: moving from }"
-                        from="${from%% to *}"
-                        local to="${reflog_line##* to }"
-                        [[ -n "$from" ]] && wt_branches+=("$from")
-                        [[ -n "$to" ]] && wt_branches+=("$to")
-                    fi
-                done
-                # Deduplicate
-                wt_branches=(${(u)wt_branches})
 
                 echo "Removing worktree: $project ($head_branch)"
                 git -C "$GROVE_PROJECTS_DIR/$project" worktree remove $force_flag "$project_dir" || rc=1
                 if [[ $rc -eq 0 ]]; then
                     local b
                     for b in "${wt_branches[@]}"; do
-                        # Never delete the base branch
-                        [[ "$b" == "$base_branch_name" ]] && continue
                         git -C "$GROVE_PROJECTS_DIR/$project" branch -D "$b" 2>/dev/null
                     done
                 fi
