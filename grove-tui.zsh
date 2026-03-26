@@ -292,7 +292,7 @@ _grove_tui_render_branch_tree() {
                 prefix+="│ "
                 (( j++ ))
             done
-            output_lines+=("${_bars}\t${prefix}○ ${node_name}")
+            output_lines+=("${_bars}"$'\t'"${prefix}○ ${node_name}")
 
         elif (( num_children == 1 )); then
             # Single child — continues the line, no fork
@@ -303,7 +303,7 @@ _grove_tui_render_branch_tree() {
                 prefix+="│ "
                 (( j++ ))
             done
-            output_lines+=("${_bars}\t${prefix}○ ${node_name}")
+            output_lines+=("${_bars}"$'\t'"${prefix}○ ${node_name}")
 
         else
             # Multiple children — fork point
@@ -351,13 +351,13 @@ _grove_tui_render_branch_tree() {
                 (( j++ ))
             done
 
-            output_lines+=("${fork_bars}\t${prefix} ${node_name}")
+            output_lines+=("${fork_bars}"$'\t'"${prefix} ${node_name}")
         fi
     }
 
     # Walk each root (suppress stdout from _gt_walk to avoid local variable leaks)
     for i in "${roots[@]}"; do
-        _gt_walk "$i" "0" > /dev/null
+        _gt_walk "$i" "0"
     done
 
     # Output all lines (format: bars\tprefix name)
