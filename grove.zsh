@@ -60,7 +60,8 @@ typeset -gA grove_workspaces
 #   grove_workspaces[fullstack]="frontend backend"
 #   grove_post_create_commands[my-api]="yarn && npx prisma generate"
 #
-local _grove_script_dir="${${(%):-%x}:A:h}"
+GROVE_SCRIPT_DIR="${${(%):-%x}:A:h}"
+local _grove_script_dir="$GROVE_SCRIPT_DIR"
 if [[ -f "$_grove_script_dir/grove.local.zsh" ]]; then
     source "$_grove_script_dir/grove.local.zsh"
 fi
@@ -506,6 +507,7 @@ RUNNING A ONE-OFF COMMAND
 OTHER COMMANDS
   gv --list     List all workspaces and their instances
   gv --home     cd to your projects directory
+  gv --update   Pull the latest grove updates from git
   gv --help     Show this help
 
 CONFIGURATION
@@ -528,6 +530,15 @@ HELP
         return 0
     elif [[ "$1" == "--home" ]]; then
         cd "$projects_dir"
+        return 0
+    elif [[ "$1" == "--update" ]]; then
+        echo "Updating grove from $(git -C "$GROVE_SCRIPT_DIR" remote get-url origin)..."
+        if git -C "$GROVE_SCRIPT_DIR" pull --ff-only; then
+            echo "Grove updated. Restart your shell or run: source ~/.zshrc"
+        else
+            echo "Update failed. You may have local changes — check $GROVE_SCRIPT_DIR" >&2
+            return 1
+        fi
         return 0
     elif [[ "$1" == "--list" ]]; then
         local -a all_ws=(${(s: :)$(_grove_list_all_workspaces)})
@@ -793,6 +804,7 @@ HELP
         echo "       gv --rm [--force] <workspace> <name>"
         echo "       gv --kms [--force]                  # remove current workspace (from inside it)"
         echo "       gv --home"
+        echo "       gv --update"
         echo "       gv --help"
         return 1
     fi
