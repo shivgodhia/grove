@@ -31,6 +31,27 @@ ztr test '
     [[ "$output" != *"p=0"* ]]
 ' 'no variable leaks in preview output'
 
+# Branch name appears correctly (not as ○)
+ztr test '
+    create_test_repo myapp
+    gv myapp my-feature &>/dev/null
+    local output=$(_test_preview myapp my-feature)
+    # The branch name should appear, not just ○
+    [[ "$output" == *"testuser/my-feature"* ]] &&
+    # Should not have ○ as a standalone "branch name"
+    local line
+    local found_bad=0
+    while read -r line; do
+        # Strip ANSI codes for checking
+        local clean=$(echo "$line" | sed $'"'"'s/\x1b\\[[0-9;]*m//g'"'"')
+        # Check for line that is just "○ ○" or similar (branch name = ○)
+        if [[ "$clean" == *"○ ○"* ]]; then
+            found_bad=1
+        fi
+    done <<< "$output"
+    (( found_bad == 0 ))
+' 'branch name renders correctly, not as ○'
+
 # Preview with stacked branches has no leaks
 ztr test '
     create_test_repo myapp

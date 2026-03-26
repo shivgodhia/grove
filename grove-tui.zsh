@@ -277,7 +277,6 @@ _grove_tui_render_branch_tree() {
         local num_children=${#child_indices}
 
         # Helper: build │ bar pattern for PR/continuation lines
-        # Shows │ for all active columns (0..total_cols-1), excluding col_depth
         local _bars=""
         (( j = 0 ))
         while (( j < total_cols )); do
@@ -356,9 +355,9 @@ _grove_tui_render_branch_tree() {
         fi
     }
 
-    # Walk each root
+    # Walk each root (suppress stdout from _gt_walk to avoid local variable leaks)
     for i in "${roots[@]}"; do
-        _gt_walk "$i" "0"
+        _gt_walk "$i" "0" > /dev/null
     done
 
     # Output all lines (format: bars\tprefix name)
