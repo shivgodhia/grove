@@ -280,40 +280,41 @@ _grove_worktree_branch_parents() {
     }
 
     # Resolve final parent for each branch using priority:
-    # 1. Graphite metadata (walk chain to find nearest ancestor in worktree set)
-    # 2. Reflog-based parent (if named and in worktree set)
-    # 3. Commit ancestry fallback (for branches with no other parent info)
+    # 1. Commit ancestry (closest ancestor branch in the worktree set)
+    # 2. Graphite metadata (walk chain to find nearest ancestor in worktree set)
+    # 3. Reflog-based parent (if named and in worktree set)
     local parent distance best_parent best_distance candidate gt_resolved
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
         parent=""
 
-        # Try Graphite metadata first (walks chain to find nearest in-set ancestor)
-        gt_resolved=$(_resolve_gt_parent "$b")
-        if [[ -n "$gt_resolved" ]]; then
-            parent="$gt_resolved"
-        # Try reflog parent
-        elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
-            parent="${first_parent[$b]}"
-            # If parent is base branch or not in our set, it's a root
-            if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
-                parent=""
-            fi
-        # Ancestry fallback for branches with no reflog or Graphite parent
-        elif [[ -z "${first_parent[$b]+x}" || "${first_parent[$b]}" == "__SHA__" ]]; then
-            best_parent=""
-            best_distance=999999
-            for candidate in "${wt_branches[@]}"; do
-                [[ -z "$candidate" || "$candidate" == "$b" ]] && continue
-                if git -C "$project_dir" merge-base --is-ancestor "$candidate" "$b" 2>/dev/null; then
-                    distance=$(git -C "$project_dir" rev-list --count "${candidate}..${b}" 2>/dev/null)
-                    if [[ -n "$distance" ]] && (( distance > 0 )) && (( distance < best_distance )); then
-                        best_distance=$distance
-                        best_parent="$candidate"
-                    fi
+        # Try commit ancestry first (most reliable for actual stacking)
+        best_parent=""
+        best_distance=999999
+        for candidate in "${wt_branches[@]}"; do
+            [[ -z "$candidate" || "$candidate" == "$b" ]] && continue
+            if git -C "$project_dir" merge-base --is-ancestor "$candidate" "$b" 2>/dev/null; then
+                distance=$(git -C "$project_dir" rev-list --count "${candidate}..${b}" 2>/dev/null)
+                if [[ -n "$distance" ]] && (( distance > 0 )) && (( distance < best_distance )); then
+                    best_distance=$distance
+                    best_parent="$candidate"
                 fi
-            done
+            fi
+        done
+        if [[ -n "$best_parent" ]]; then
             parent="$best_parent"
+        else
+            # Try Graphite metadata (walks chain to find nearest in-set ancestor)
+            gt_resolved=$(_resolve_gt_parent "$b")
+            if [[ -n "$gt_resolved" ]]; then
+                parent="$gt_resolved"
+            # Try reflog parent
+            elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
+                parent="${first_parent[$b]}"
+                if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
+                    parent=""
+                fi
+            fi
         fi
 
         echo "${b}|${parent}"
