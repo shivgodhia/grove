@@ -1,10 +1,7 @@
 #!/usr/bin/env zsh
 # Tests for _grove_tui_render_branch_tree display output
-# These tests create worktrees with specific branch topologies and verify
-# the tree renderer produces the correct visual output.
-#
-# Output format: each line is "prefix|branch_name" where prefix contains
-# the tree-drawing characters (○, │, etc.)
+# Output format mimics gt ls: vertical │ columns for active branches,
+# ─┘ or ─┴─┘ at fork points.
 
 ZTR_SETUP_FN() { grove_test_setup; }
 ZTR_TEARDOWN_FN() { grove_test_teardown; }
@@ -19,11 +16,11 @@ ztr test '
     [[ "$output" == "○ testuser/my-feature" ]]
 ' 'single branch renders plain'
 
-# ── Linear stack: A -> B -> C (no forks) ────────────────────────────────────
-# A linear stack should stay at the SAME indent level, like gt co:
-#   ○ branch-c
-#   ○ branch-b
-#   ○ branch-a
+# ── Linear stack: A -> B -> C ────────────────────────────────────────────
+# All at same indent, no fork connectors:
+#   ○ testuser/branch-c
+#   ○ testuser/branch-b
+#   ○ testuser/branch-a
 
 ztr test '
     create_test_repo myapp
@@ -39,14 +36,9 @@ ztr test '
 ○ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
-' 'linear stack: all branches at same indent'
+' 'linear stack: all at same indent'
 
-# ── Deep stack: A -> B -> C -> D ────────────────────────────────────────────
-# Same as linear — all at same indent:
-#   ○ branch-d
-#   ○ branch-c
-#   ○ branch-b
-#   ○ branch-a
+# ── Deep stack: A -> B -> C -> D ────────────────────────────────────────
 
 ztr test '
     create_test_repo myapp
@@ -65,13 +57,16 @@ ztr test '
 ○ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
-' 'deep stack: all branches at same indent'
+' 'deep stack: all at same indent'
 
-# ── Fork: A -> B and A -> C ────────────────────────────────────────────────
-# When A has two children, the second child branches off:
-#   ○ testuser/branch-b
+# ── Fork: A has two children B and C ──────────────────────────────────────
+# B continues main line, C is a side branch:
 #   │ ○ testuser/branch-c
-#   ○ testuser/branch-a
+#   ○─┘ testuser/branch-b  (wrong -- b is not a fork point)
+# Actually: A is the fork point with children B and C:
+#   ○   testuser/branch-b
+#   │ ○ testuser/branch-c
+#   ○─┘ testuser/branch-a
 
 ztr test '
     create_test_repo myapp
@@ -84,21 +79,20 @@ ztr test '
     git -C "$wt_dir" commit --allow-empty -m "c" --quiet
 
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
-    # Both B and C should be shown as children of A
-    # One continues the main line, the other branches off with │
+    # A is fork point with two children — one continues, one branches
     [[ "$output" == *"testuser/branch-b"* ]] &&
     [[ "$output" == *"testuser/branch-c"* ]] &&
     [[ "$output" == *"testuser/branch-a"* ]] &&
-    # At least one line should have │ (the side branch)
-    [[ "$output" == *"│"* ]]
-' 'fork: side branch indented with │'
+    # Fork point should have ─┘ connector
+    [[ "$output" == *"─┘"* ]]
+' 'fork: has ─┘ connector at fork point'
 
-# ── Stack with side branch: A -> B -> C, B -> D ──────────────────────────
-# C continues the main line, D branches off B:
+# ── Stack with one side branch: A -> B -> C, A -> D ──────────────────────
+# B->C continues main line (deepest chain), D branches off A:
 #   ○ testuser/branch-c
-#   │ ○ testuser/branch-d
 #   ○ testuser/branch-b
-#   ○ testuser/branch-a
+#   │ ○ testuser/branch-d
+#   ○─┘ testuser/branch-a
 
 ztr test '
     create_test_repo myapp
@@ -108,24 +102,24 @@ ztr test '
     git -C "$wt_dir" commit --allow-empty -m "b" --quiet
     git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
     git -C "$wt_dir" commit --allow-empty -m "c" --quiet
-    git -C "$wt_dir" checkout "testuser/branch-b" --quiet
+    git -C "$wt_dir" checkout "testuser/branch-a" --quiet
     git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
     git -C "$wt_dir" commit --allow-empty -m "d" --quiet
 
     local expected="○ testuser/branch-c
-│ ○ testuser/branch-d
 ○ testuser/branch-b
-○ testuser/branch-a"
+│ ○ testuser/branch-d
+○─┘ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
-' 'stack with side branch: side branch indented'
+' 'stack with side branch: gt ls style'
 
-# ── Stack with deeper side branch: A -> B -> C -> D, B -> E ──────────────
-# D continues the main line from C from B, E branches off B:
+# ── Stack with side branch off middle: A -> B -> C -> D, B -> E ──────────
+# D is top, E branches off B:
 #   ○ testuser/branch-d
 #   ○ testuser/branch-c
 #   │ ○ testuser/branch-e
-#   ○ testuser/branch-b
+#   ○─┘ testuser/branch-b
 #   ○ testuser/branch-a
 
 ztr test '
@@ -145,18 +139,43 @@ ztr test '
     local expected="○ testuser/branch-d
 ○ testuser/branch-c
 │ ○ testuser/branch-e
-○ testuser/branch-b
+○─┘ testuser/branch-b
 ○ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
-' 'deep stack with side branch off middle'
+' 'side branch off middle: gt ls style'
 
-# ── Graphite chain with gaps: A -> [B] -> C -> [D] -> E ─────────────────
-# B and D are not in the worktree (they're in other worktrees).
-# E -> C -> A should form a linear chain:
-#   ○ testuser/branch-e
-#   ○ testuser/branch-c
-#   ○ testuser/branch-a
+# ── Two side branches off same node: A -> B, A -> C, A -> D ──────────────
+# B continues main, C and D branch off A:
+#   ○ testuser/branch-b
+#   │ ○ testuser/branch-d
+#   │ │ ○ testuser/branch-c
+#   ○─┴─┘ testuser/branch-a
+
+ztr test '
+    create_test_repo myapp
+    gv myapp branch-a &>/dev/null
+    local wt_dir="$GROVE_WORKSPACES_DIR/myapp/branch-a/myapp"
+    git -C "$wt_dir" checkout -b "testuser/branch-b" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "b" --quiet
+    git -C "$wt_dir" checkout "testuser/branch-a" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "c" --quiet
+    git -C "$wt_dir" checkout "testuser/branch-a" --quiet
+    git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
+    git -C "$wt_dir" commit --allow-empty -m "d" --quiet
+
+    local expected="○ testuser/branch-b
+│ ○ testuser/branch-d
+│ │ ○ testuser/branch-c
+○─┴─┘ testuser/branch-a"
+    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    [[ "$output" == "$expected" ]]
+' 'two side branches: gt ls style with ─┴─┘'
+
+# ── Graphite chain with gaps ────────────────────────────────────────────
+# A -> [B] -> C -> [D] -> E (B and D not in worktree)
+# Should render as linear: E -> C -> A
 
 ztr test '
     create_test_repo myapp
@@ -183,7 +202,6 @@ ztr test '
     _write_gt "testuser/branch-d" "testuser/branch-c"
     _write_gt "testuser/branch-e" "testuser/branch-d"
 
-    # Remove B and D (simulate them being in other worktrees)
     git -C "$wt_dir" checkout "testuser/branch-e" --quiet
     git -C "$wt_dir" branch -D "testuser/branch-b" --quiet 2>/dev/null
     git -C "$wt_dir" branch -D "testuser/branch-d" --quiet 2>/dev/null

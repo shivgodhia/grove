@@ -156,16 +156,17 @@ _grove_tui_label() {
 }
 
 # ─── Branch tree helper ───────────────────────────────────────────────────────
-# Render branches as a tree based on commit ancestry.
+# Render branches as a tree in gt-ls style.
 # Usage: _grove_tui_render_branch_tree <project_dir> [branch1 branch2 ...]
-# Output format: one line per branch with tree-drawing prefix, e.g.:
-#   ○ branch-d          (top of linear stack)
-#   ○ branch-c
+# Output format (gt ls style):
+#   ○   branch-d
+#   ○   branch-c
 #   │ ○ branch-e        (side branch off branch-b)
-#   ○ branch-b
-#   ○ branch-a          (root)
+#   ○─┘ branch-b        (fork point)
+#   ○   branch-a
 #
-# Linear stacks stay at the same indent. Side branches get │ prefix.
+# Linear stacks stay at the same column. Fork points show ─┘ or ─┴─┘.
+# Side branches get their own │ column that persists until the fork point.
 # Children appear before parents (leaves at top, roots at bottom).
 _grove_tui_render_branch_tree() {
     local project_dir="$1"
@@ -192,7 +193,6 @@ _grove_tui_render_branch_tree() {
     local i j
 
     # Find children for each branch (by index)
-    # children_of_N = space-separated child indices
     local -a children_lists=()
     (( i = 1 ))
     while (( i <= ${#names} )); do
@@ -217,15 +217,7 @@ _grove_tui_render_branch_tree() {
         (( i++ ))
     done
 
-    # Walk a node and its descendants, outputting lines.
-    # prefix: the tree-drawing characters to prepend (e.g., "│ ")
-    # For each node with children:
-    #   - First child continues the "main line" (same prefix)
-    #   - Additional children are "side branches" (get "│ " prefix)
-    # Output is children first (leaves at top), then the node itself.
-    local -a output_lines=()
-
-    # Compute max descendant chain depth for a node
+    # Compute max descendant chain depth for a node (for choosing main child)
     _chain_depth() {
         local idx="$1"
         local kids="${children_lists[$idx]}"
@@ -233,8 +225,7 @@ _grove_tui_render_branch_tree() {
             echo "0"
             return
         fi
-        local max_d=0 child_d
-        local ci
+        local max_d=0 child_d ci
         for ci in ${(s: :)kids}; do
             child_d=$(_chain_depth "$ci")
             (( child_d + 1 > max_d )) && (( max_d = child_d + 1 ))
@@ -242,60 +233,111 @@ _grove_tui_render_branch_tree() {
         echo "$max_d"
     }
 
-    _tree_walk() {
-        local node_idx="$1" prefix="$2"
+    # For a node with multiple children, pick the main child (deepest chain first,
+    # then higher index for ties). Returns the index.
+    _pick_main_child() {
+        local -a child_indices=(${(s: :)1})
+        local main_idx="${child_indices[1]}"
+        local main_depth=$(_chain_depth "$main_idx")
+        local si cd
+        (( si = 2 ))
+        while (( si <= ${#child_indices} )); do
+            cd=$(_chain_depth "${child_indices[$si]}")
+            if (( cd > main_depth )) || \
+               (( cd == main_depth && child_indices[si] > main_idx )); then
+                main_idx="${child_indices[$si]}"
+                main_depth="$cd"
+            fi
+            (( si++ ))
+        done
+        echo "$main_idx"
+    }
+
+    # === gt-ls style rendering ===
+    # DFS walk producing ordered lines. Each side branch subtree gets a │ column
+    # that persists from its first node down to the fork point.
+    #
+    # The walk processes: main child subtree first, then each side branch subtree.
+    # The fork-point node renders with ─┘ (1 side branch) or ─┴─┘ (2+).
+
+    local -a output_lines=()
+
+    # _gt_walk renders a subtree rooted at node_idx.
+    # col_depth: number of │ columns to the LEFT of this subtree (from ancestor forks)
+    _gt_walk() {
+        local node_idx="$1" col_depth="$2"
         local node_name="${names[$node_idx]}"
         local kids="${children_lists[$node_idx]}"
         local -a child_indices=()
-        if [[ -n "$kids" ]]; then
-            child_indices=(${(s: :)kids})
-        fi
+        [[ -n "$kids" ]] && child_indices=(${(s: :)kids})
 
-        if (( ${#child_indices} == 0 )); then
+        local num_children=${#child_indices}
+
+        if (( num_children == 0 )); then
             # Leaf node
-            output_lines+=("${prefix}○ ${node_name}")
-        elif (( ${#child_indices} == 1 )); then
-            # Single child — continues the main line (same prefix)
-            _tree_walk "${child_indices[1]}" "$prefix"
-            output_lines+=("${prefix}○ ${node_name}")
-        else
-            # Multiple children — sort by chain depth (deepest first = main line)
-            local -a sorted_children=()
-            local -a child_depths=()
-            local ci cd
-            for ci in "${child_indices[@]}"; do
-                cd=$(_chain_depth "$ci")
-                sorted_children+=("$ci")
-                child_depths+=("$cd")
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
             done
-            # Find the main child: deepest chain wins; ties broken by higher index
-            # (higher index = created earlier per reflog order)
-            local main_idx="${sorted_children[1]}" main_depth="${child_depths[1]}"
-            local si
-            (( si = 2 ))
-            while (( si <= ${#sorted_children} )); do
-                if (( child_depths[si] > main_depth )) || \
-                   (( child_depths[si] == main_depth && sorted_children[si] > main_idx )); then
-                    main_idx="${sorted_children[$si]}"
-                    main_depth="${child_depths[$si]}"
-                fi
+            output_lines+=("${prefix}○ ${node_name}")
+
+        elif (( num_children == 1 )); then
+            # Single child — continues the line, no fork
+            _gt_walk "${child_indices[1]}" "$col_depth"
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
+            done
+            output_lines+=("${prefix}○ ${node_name}")
+
+        else
+            # Multiple children — fork point
+            local main_child=$(_pick_main_child "$kids")
+            local -a side_children=()
+            local ci
+            for ci in "${child_indices[@]}"; do
+                [[ "$ci" != "$main_child" ]] && side_children+=("$ci")
+            done
+            local num_sides=${#side_children}
+
+            # Walk main child at current col_depth (it continues the main line)
+            _gt_walk "$main_child" "$col_depth"
+
+            # Walk each side branch at increasing col_depth
+            local si=0
+            for ci in "${side_children[@]}"; do
+                _gt_walk "$ci" "$(( col_depth + si + 1 ))"
                 (( si++ ))
             done
 
-            # Main child continues the line
-            _tree_walk "$main_idx" "$prefix"
-            # Side branches
-            for ci in "${sorted_children[@]}"; do
-                [[ "$ci" == "$main_idx" ]] && continue
-                _tree_walk "$ci" "${prefix}│ "
+            # Render fork point: ○─┘ or ○─┴─┘ etc.
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
             done
-            output_lines+=("${prefix}○ ${node_name}")
+            prefix+="○"
+            (( j = 0 ))
+            while (( j < num_sides )); do
+                if (( j == num_sides - 1 )); then
+                    prefix+="─┘"
+                else
+                    prefix+="─┴"
+                fi
+                (( j++ ))
+            done
+            output_lines+=("${prefix} ${node_name}")
         fi
     }
 
     # Walk each root
     for i in "${roots[@]}"; do
-        _tree_walk "$i" ""
+        _gt_walk "$i" "0"
     done
 
     # Output all lines
@@ -429,13 +471,13 @@ _grove_tui_preview() {
             while read -r tree_line; do
                 [[ -z "$tree_line" ]] && continue
 
-                # Extract prefix (tree-drawing chars) and branch name
-                # Line format: "[│ ]...○ branch-name"
-                # Split on "○ " to get prefix and name
-                indent="${tree_line%%○ *}"
-                b="${tree_line#*○ }"
+                # Extract branch name: everything after the last "○" connector + space
+                # Formats: "○ name", "│ ○ name", "○─┘ name", "○─┴─┘ name"
+                # The name always follows the last space in the line
+                b="${tree_line##* }"
+                indent="${tree_line% *}"
 
-                # Replace ○ with appropriate marker
+                # Build colored version of the line (replace ○ with marker)
                 marker="○"
                 suffix=""
                 if [[ "$b" == "$head_branch" ]]; then
@@ -452,11 +494,12 @@ _grove_tui_preview() {
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                # Compute PR indent (same prefix but with spaces replacing tree chars)
-                local pr_indent="${indent//│/ }"
-                pr_indent="${pr_indent//○/ }"
+                # Replace ○ in indent with colored marker
+                local colored_indent="${indent//○/${marker}}"
 
-                echo "  ${indent}${marker} \e[0;32m${b}\e[0m${suffix}"
+                echo "  ${colored_indent} \e[0;32m${b}\e[0m${suffix}"
+                # PR line: replace all drawing chars with spaces for alignment
+                local pr_indent="${indent//[○│─┘┴]/ }"
                 echo "  ${pr_indent}  ${pr_display}"
             done < <(_grove_tui_render_branch_tree "$project_dir")
             echo ""
