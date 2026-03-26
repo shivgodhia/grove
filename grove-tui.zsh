@@ -386,6 +386,8 @@ _grove_tui_render_branch_tree() {
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
 _grove_tui_preview() {
+    setopt localoptions typesetsilent
+
     local line="$1"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
 
@@ -483,9 +485,11 @@ _grove_tui_preview() {
     }
 
     # Per-project details with all branches
-    local status_line pr_data pr_display tree_line indent marker suffix pr_key pr_indent
+    local status_line pr_data pr_display tree_line indent marker suffix pr_key
     local -a tree_lines_arr
-    local tree_prefix tree_bars pad_count padding p max_prefix_len colored_prefix pr_pad bars_pad
+    local tree_prefix colored_prefix b max_prefix_len pad_count padding p
+    local max_branch_detail_len branch_detail_len pr_pad_count pr_padding
+    local head_plain
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -504,37 +508,37 @@ _grove_tui_preview() {
 
             echo "\e[0;33m${project}\e[0m  ${status_line}"
 
-            # Collect tree lines first to find max prefix width for alignment
+            # Collect tree lines from renderer.
             # Format: bars\tprefix name
             tree_lines_arr=()
             while IFS= read -r tree_line; do
                 [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
             done < <(_grove_tui_render_branch_tree "$project_dir")
 
-            # Find max prefix width (the "prefix" part after \t, before last space + name)
+            # Align branch-name column: compute max tree-prefix width first.
             max_prefix_len=0
             for tree_line in "${tree_lines_arr[@]}"; do
                 tree_prefix="${tree_line#*$'\t'}"
                 tree_prefix="${tree_prefix% *}"
                 (( ${#tree_prefix} > max_prefix_len )) && max_prefix_len=${#tree_prefix}
             done
-
-            # Render each line with aligned branch names
+            max_branch_detail_len=0
             for tree_line in "${tree_lines_arr[@]}"; do
-                # Parse: bars\tprefix name
-                tree_bars="${tree_line%%$'\t'*}"
+                tree_prefix="${tree_line#*$'\t'}"
+                b="${tree_prefix##* }"
+                head_plain=""
+                if [[ "$b" == "$head_branch" ]]; then
+                    head_plain="  ← HEAD"
+                fi
+                branch_detail_len=$(( ${#b} + ${#head_plain} ))
+                (( branch_detail_len > max_branch_detail_len )) && max_branch_detail_len=$branch_detail_len
+            done
+
+            # Render each branch in a single line (gt ls style).
+            for tree_line in "${tree_lines_arr[@]}"; do
                 tree_prefix="${tree_line#*$'\t'}"
                 b="${tree_prefix##* }"
                 tree_prefix="${tree_prefix% *}"
-
-                # Pad prefix to max width
-                pad_count=$(( max_prefix_len - ${#tree_prefix} ))
-                padding=""
-                p=0
-                while (( p < pad_count )); do
-                    padding+=" "
-                    (( p++ ))
-                done
 
                 # Build colored version of the prefix (replace ○/◉ with marker)
                 marker="○"
@@ -542,8 +546,18 @@ _grove_tui_preview() {
                 if [[ "$b" == "$head_branch" ]]; then
                     marker="\e[1;37m◉\e[0m"
                     suffix="  \e[0;90m← HEAD\e[0m"
+                    head_plain="  ← HEAD"
+                else
+                    head_plain=""
                 fi
                 colored_prefix="${tree_prefix//○/${marker}}"
+                pad_count=$(( max_prefix_len - ${#tree_prefix} ))
+                padding=""
+                p=0
+                while (( p < pad_count )); do
+                    padding+=" "
+                    (( p++ ))
+                done
 
                 # PR status
                 pr_data=""
@@ -554,16 +568,16 @@ _grove_tui_preview() {
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}"
-                # PR line: use bars pattern (│ for active columns) + padding
-                pr_pad=""
-                bars_pad=$(( max_prefix_len - ${#tree_bars} ))
+                branch_detail_len=$(( ${#b} + ${#head_plain} ))
+                pr_pad_count=$(( max_branch_detail_len - branch_detail_len ))
+                pr_padding=""
                 p=0
-                while (( p < bars_pad )); do
-                    pr_pad+=" "
+                while (( p < pr_pad_count )); do
+                    pr_padding+=" "
                     (( p++ ))
                 done
-                echo "  ${tree_bars}${pr_pad}   ${pr_display}"
+
+                echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}${pr_padding}  ${pr_display}"
             done
             echo ""
         fi
