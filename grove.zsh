@@ -246,24 +246,55 @@ _grove_worktree_branch_parents() {
             [[ "$to" == "HEAD" ]] && to=""
 
             # Record first parent for each branch (only first occurrence)
-            # Store the raw parent; if from is empty (was a SHA), skip so
-            # ancestry fallback can find the real parent later
-            if [[ -n "$to" && -n "$from" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
-                first_parent[$to]="$from"
+            if [[ -n "$to" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
+                if [[ -n "$from" ]]; then
+                    # Named parent branch — record it
+                    first_parent[$to]="$from"
+                else
+                    # Parent was a SHA (rebase/worktree creation) — mark as seen
+                    # but with no named parent, so ancestry fallback kicks in
+                    first_parent[$to]="__SHA__"
+                fi
             fi
         fi
         (( i-- ))
     done
 
-    # For branches with no reflog-based parent at all (e.g., Graphite rebase-created),
-    # fall back to commit ancestry: find the closest ancestor branch.
-    # Branches that HAVE a reflog parent (even if it's main/outside set) are genuine roots.
+    # Try Graphite branch-metadata for parentage (most reliable for gt-managed branches)
+    local -A gt_parent=()
+    local meta_content gt_parent_name
+    for b in "${wt_branches[@]}"; do
+        [[ -z "$b" ]] && continue
+        meta_content=$(git -C "$project_dir" cat-file -p "refs/branch-metadata/$b" 2>/dev/null)
+        if [[ -n "$meta_content" ]]; then
+            gt_parent_name=$(echo "$meta_content" | grep -o '"parentBranchName": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+            if [[ -n "$gt_parent_name" ]]; then
+                gt_parent[$b]="$gt_parent_name"
+            fi
+        fi
+    done
+
+    # Resolve final parent for each branch using priority:
+    # 1. Graphite metadata (if available and parent is in worktree set)
+    # 2. Reflog-based parent (if named and in worktree set)
+    # 3. Commit ancestry fallback (for branches with no other parent info)
     local parent distance best_parent best_distance candidate
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
-        parent="${first_parent[$b]}"
-        if [[ -z "${first_parent[$b]+x}" ]]; then
-            # No reflog entry at all — use ancestry fallback
+        parent=""
+
+        # Try Graphite metadata first
+        if [[ -n "${gt_parent[$b]+x}" && -n "${branch_set[${gt_parent[$b]}]+x}" ]]; then
+            parent="${gt_parent[$b]}"
+        # Try reflog parent
+        elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
+            parent="${first_parent[$b]}"
+            # If parent is base branch or not in our set, it's a root
+            if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
+                parent=""
+            fi
+        # Ancestry fallback for branches with no reflog or Graphite parent
+        elif [[ -z "${first_parent[$b]+x}" || "${first_parent[$b]}" == "__SHA__" ]]; then
             best_parent=""
             best_distance=999999
             for candidate in "${wt_branches[@]}"; do
@@ -277,13 +308,8 @@ _grove_worktree_branch_parents() {
                 fi
             done
             parent="$best_parent"
-        else
-            # Has a reflog parent — resolve it
-            # If parent is __ROOT__, base branch, or not in our set, it's a root
-            if [[ "$parent" == "__ROOT__" || "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
-                parent=""
-            fi
         fi
+
         echo "${b}|${parent}"
     done
 }
