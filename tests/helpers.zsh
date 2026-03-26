@@ -41,8 +41,10 @@ tmux() {
 grove_test_init() {
     GROVE_TEST_BASE=$(mktemp -d)
 
-    # Copy grove.zsh to isolated dir so it won't find grove.local.zsh
+    # Copy grove.zsh and grove-tui.zsh to isolated dir so it won't find grove.local.zsh
     cp "$GROVE_SCRIPT_PATH" "$GROVE_TEST_BASE/grove.zsh"
+    local tui_path="${GROVE_SCRIPT_PATH:h}/grove-tui.zsh"
+    [[ -f "$tui_path" ]] && cp "$tui_path" "$GROVE_TEST_BASE/grove-tui.zsh"
 
     # Set config defaults BEFORE sourcing (so source-time validation uses test dirs)
     GROVE_PROJECTS_DIR="$GROVE_TEST_BASE/projects"

@@ -155,49 +155,230 @@ _grove_tui_label() {
     echo " [${REPLY_WS}]/${REPLY_INST} | ${t} "
 }
 
-# ─── Branch sorting helper ────────────────────────────────────────────────────
-# Sort branches by commit topology: topmost (child) first.
-# Usage: _grove_tui_sort_branches <project_dir> branch1 branch2 ...
-# Outputs sorted branches, one per line.
-_grove_tui_sort_branches() {
+# ─── Branch tree helper ───────────────────────────────────────────────────────
+# Render branches as a tree in gt-ls style.
+# Usage: _grove_tui_render_branch_tree <project_dir> [branch1 branch2 ...]
+# Output format (gt ls style):
+#   ○   branch-d
+#   ○   branch-c
+#   │ ○ branch-e        (side branch off branch-b)
+#   ○─┘ branch-b        (fork point)
+#   ○   branch-a
+#
+# Linear stacks stay at the same column. Fork points show ─┘ or ─┴─┘.
+# Side branches get their own │ column that persists until the fork point.
+# Children appear before parents (leaves at top, roots at bottom).
+_grove_tui_render_branch_tree() {
     local project_dir="$1"
     shift
-    local -a branches=("$@") sorted=() remaining=("$@")
-    local found i j is_top
+    local -a branch_args=("$@")
 
-    while (( ${#remaining} > 0 )); do
-        found=""
-        (( i = 1 ))
-        while (( i <= ${#remaining} )); do
-            (( is_top = 1 ))
-            (( j = 1 ))
-            while (( j <= ${#remaining} )); do
-                if (( i != j )) && [[ -n "${remaining[$i]}" && -n "${remaining[$j]}" ]]; then
-                    if git -C "$project_dir" merge-base --is-ancestor "${remaining[$i]}" "${remaining[$j]}" 2>/dev/null; then
-                        (( is_top = 0 ))
-                        break
-                    fi
+    # Read parent relationships into parallel arrays
+    local -a names=() parents=()
+    local line b parent
+    if (( ${#branch_args} > 0 )); then
+        while read -r line; do
+            b="${line%%|*}"
+            parent="${line#*|}"
+            [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
+        done < <(_grove_worktree_branch_parents "$project_dir" "${branch_args[@]}")
+    else
+        while read -r line; do
+            b="${line%%|*}"
+            parent="${line#*|}"
+            [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
+        done < <(_grove_worktree_branch_parents "$project_dir")
+    fi
+
+    local i j
+
+    # Find children for each branch (by index)
+    local -a children_lists=()
+    (( i = 1 ))
+    while (( i <= ${#names} )); do
+        local kids=""
+        (( j = 1 ))
+        while (( j <= ${#names} )); do
+            if [[ "${parents[$j]}" == "${names[$i]}" ]]; then
+                [[ -n "$kids" ]] && kids+=" "
+                kids+="$j"
+            fi
+            (( j++ ))
+        done
+        children_lists+=("$kids")
+        (( i++ ))
+    done
+
+    # Find roots (branches with no parent)
+    local -a roots=()
+    (( i = 1 ))
+    while (( i <= ${#names} )); do
+        [[ -z "${parents[$i]}" ]] && roots+=("$i")
+        (( i++ ))
+    done
+
+    # Compute max descendant chain depth for a node (for choosing main child)
+    _chain_depth() {
+        local idx="$1"
+        local kids="${children_lists[$idx]}"
+        if [[ -z "$kids" ]]; then
+            echo "0"
+            return
+        fi
+        local max_d=0 child_d ci
+        for ci in ${(s: :)kids}; do
+            child_d=$(_chain_depth "$ci")
+            (( child_d + 1 > max_d )) && (( max_d = child_d + 1 ))
+        done
+        echo "$max_d"
+    }
+
+    # For a node with multiple children, pick the main child (deepest chain first,
+    # then higher index for ties). Returns the index.
+    _pick_main_child() {
+        local -a child_indices=(${(s: :)1})
+        local main_idx="${child_indices[1]}"
+        local main_depth=$(_chain_depth "$main_idx")
+        local si cd
+        (( si = 2 ))
+        while (( si <= ${#child_indices} )); do
+            cd=$(_chain_depth "${child_indices[$si]}")
+            if (( cd > main_depth )) || \
+               (( cd == main_depth && child_indices[si] > main_idx )); then
+                main_idx="${child_indices[$si]}"
+                main_depth="$cd"
+            fi
+            (( si++ ))
+        done
+        echo "$main_idx"
+    }
+
+    # === gt-ls style rendering ===
+    # DFS walk producing ordered lines. Each side branch subtree gets a │ column
+    # that persists from its first node down to the fork point.
+    #
+    # The walk processes: main child subtree first, then each side branch subtree.
+    # The fork-point node renders with ─┘ (1 side branch) or ─┴─┘ (2+).
+
+    local -a output_lines=()
+
+    # _gt_walk renders a subtree rooted at node_idx.
+    # col_depth: number of │ columns to the LEFT of this subtree (from ancestor forks)
+    # _gt_walk renders a subtree rooted at node_idx.
+    # col_depth: column position of this node's ○ marker
+    # total_cols: total active columns from ancestor forks
+    _gt_walk() {
+        local node_idx="$1" col_depth="$2" total_cols="${3:-$2}"
+        local node_name="${names[$node_idx]}"
+        local kids="${children_lists[$node_idx]}"
+        local -a child_indices=()
+        [[ -n "$kids" ]] && child_indices=(${(s: :)kids})
+
+        local num_children=${#child_indices}
+
+        # Helper: build │ bar pattern for PR/continuation lines
+        # Columns 0..col_depth-1: │ (from ancestor forks)
+        # Column col_depth: space (the node's own position)
+        # Columns col_depth+1..total_cols: │ (side branches from this node's parent fork)
+        local _bars=""
+        if (( total_cols > col_depth )); then
+            (( j = 0 ))
+            while (( j <= total_cols )); do
+                if (( j == col_depth )); then
+                    _bars+="  "
+                else
+                    _bars+="│ "
                 fi
                 (( j++ ))
             done
-            if (( is_top )); then
-                found="${remaining[$i]}"
-                remaining[$i]=""
-                remaining=("${(@)remaining:#}")
-                break
-            fi
-            (( i++ ))
-        done
-        if [[ -z "$found" ]]; then
-            sorted+=("${remaining[@]}")
-            break
+        elif (( col_depth > 0 )); then
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                _bars+="│ "
+                (( j++ ))
+            done
         fi
-        sorted+=("$found")
+
+        if (( num_children == 0 )); then
+            # Leaf node
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
+            done
+            output_lines+=("${_bars}"$'\t'"${prefix}○ ${node_name}")
+
+        elif (( num_children == 1 )); then
+            # Single child — continues the line, no fork
+            _gt_walk "${child_indices[1]}" "$col_depth" "$total_cols"
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
+            done
+            output_lines+=("${_bars}"$'\t'"${prefix}○ ${node_name}")
+
+        else
+            # Multiple children — fork point
+            local main_child=$(_pick_main_child "$kids")
+            local -a side_children=()
+            local ci
+            for ci in "${child_indices[@]}"; do
+                [[ "$ci" != "$main_child" ]] && side_children+=("$ci")
+            done
+            local num_sides=${#side_children}
+
+            # Walk main child
+            _gt_walk "$main_child" "$col_depth" "$(( col_depth + num_sides ))"
+
+            # Walk each side branch
+            local si=0
+            for ci in "${side_children[@]}"; do
+                _gt_walk "$ci" "$(( col_depth + si + 1 ))" "$(( col_depth + num_sides ))"
+                (( si++ ))
+            done
+
+            # Render fork point: ○─┘ or ○─┴─┘ etc.
+            local prefix=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                prefix+="│ "
+                (( j++ ))
+            done
+            prefix+="○"
+            (( j = 0 ))
+            while (( j < num_sides )); do
+                if (( j == num_sides - 1 )); then
+                    prefix+="─┘"
+                else
+                    prefix+="─┴"
+                fi
+                (( j++ ))
+            done
+
+            # Bars for fork point: just the cols to the left of the fork
+            local fork_bars=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                fork_bars+="│ "
+                (( j++ ))
+            done
+
+            output_lines+=("${fork_bars}"$'\t'"${prefix} ${node_name}")
+        fi
+    }
+
+    # Walk each root (suppress stdout from _gt_walk to avoid local variable leaks)
+    for i in "${roots[@]}"; do
+        _gt_walk "$i" "0"
     done
 
-    local b
-    for b in "${sorted[@]}"; do
-        [[ -n "$b" ]] && echo "$b"
+    # Output all lines (format: bars\tprefix name)
+    local l
+    for l in "${output_lines[@]}"; do
+        echo "$l"
     done
 }
 
@@ -205,6 +386,8 @@ _grove_tui_sort_branches() {
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
 _grove_tui_preview() {
+    setopt localoptions typesetsilent
+
     local line="$1"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
 
@@ -302,8 +485,11 @@ _grove_tui_preview() {
     }
 
     # Per-project details with all branches
-    local status_line pr_data pr_display
-    local -a sorted_branches
+    local status_line pr_data pr_display tree_line indent marker suffix pr_key
+    local -a tree_lines_arr
+    local tree_prefix colored_prefix b max_prefix_len pad_count padding p
+    local max_branch_detail_len branch_detail_len pr_pad_count pr_padding
+    local head_plain
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -322,29 +508,76 @@ _grove_tui_preview() {
 
             echo "\e[0;33m${project}\e[0m  ${status_line}"
 
-            # Sort branches by commit topology (topmost first)
-            sorted_branches=("${(@f)$(_grove_tui_sort_branches "$project_dir" "${all_branches[@]}")}")
-            local num_branches=${#sorted_branches}
-            local idx=1
-            for b in "${sorted_branches[@]}"; do
-                [[ -z "$b" ]] && continue
+            # Collect tree lines from renderer.
+            # Format: bars\tprefix name
+            tree_lines_arr=()
+            while IFS= read -r tree_line; do
+                [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
+            done < <(_grove_tui_render_branch_tree "$project_dir")
 
-                # Prefix: ▸ for HEAD, space otherwise
-                local prefix="  " suffix=""
-                [[ "$b" == "$head_branch" ]] && prefix="\e[1;37m▸ \e[0m" && suffix="  \e[0;90m← HEAD\e[0m"
+            # Align branch-name column: compute max tree-prefix width first.
+            max_prefix_len=0
+            for tree_line in "${tree_lines_arr[@]}"; do
+                tree_prefix="${tree_line#*$'\t'}"
+                tree_prefix="${tree_prefix% *}"
+                (( ${#tree_prefix} > max_prefix_len )) && max_prefix_len=${#tree_prefix}
+            done
+            max_branch_detail_len=0
+            for tree_line in "${tree_lines_arr[@]}"; do
+                tree_prefix="${tree_line#*$'\t'}"
+                b="${tree_prefix##* }"
+                head_plain=""
+                if [[ "$b" == "$head_branch" ]]; then
+                    head_plain="  ← HEAD"
+                fi
+                branch_detail_len=$(( ${#b} + ${#head_plain} ))
+                (( branch_detail_len > max_branch_detail_len )) && max_branch_detail_len=$branch_detail_len
+            done
+
+            # Render each branch in a single line (gt ls style).
+            for tree_line in "${tree_lines_arr[@]}"; do
+                tree_prefix="${tree_line#*$'\t'}"
+                b="${tree_prefix##* }"
+                tree_prefix="${tree_prefix% *}"
+
+                # Build colored version of the prefix (replace ○/◉ with marker)
+                marker="○"
+                suffix=""
+                if [[ "$b" == "$head_branch" ]]; then
+                    marker="\e[1;37m◉\e[0m"
+                    suffix="  \e[0;90m← HEAD\e[0m"
+                    head_plain="  ← HEAD"
+                else
+                    head_plain=""
+                fi
+                colored_prefix="${tree_prefix//○/${marker}}"
+                pad_count=$(( max_prefix_len - ${#tree_prefix} ))
+                padding=""
+                p=0
+                while (( p < pad_count )); do
+                    padding+=" "
+                    (( p++ ))
+                done
 
                 # PR status
                 pr_data=""
-                local pr_key="${project}:${b}"
+                pr_key="${project}:${b}"
                 if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then
                     pr_data=$(<"${pr_tmpfiles["$pr_key"]}")
                     rm -f "${pr_tmpfiles["$pr_key"]}"
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                echo "${prefix}\e[0;32m${b}\e[0m${suffix}"
-                echo "    ${pr_display}"
-                (( idx++ ))
+                branch_detail_len=$(( ${#b} + ${#head_plain} ))
+                pr_pad_count=$(( max_branch_detail_len - branch_detail_len ))
+                pr_padding=""
+                p=0
+                while (( p < pr_pad_count )); do
+                    pr_padding+=" "
+                    (( p++ ))
+                done
+
+                echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}${pr_padding}  ${pr_display}"
             done
             echo ""
         fi

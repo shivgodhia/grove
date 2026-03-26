@@ -162,8 +162,158 @@ _grove_worktree_branches() {
         [[ "$b" == "$base_branch_name" ]] && continue
         # Skip raw commit SHAs (40-char hex strings)
         [[ "$b" =~ ^[0-9a-f]{40}$ ]] && continue
+        # Skip detached HEAD literal
+        [[ "$b" == "HEAD" ]] && continue
+        # Skip branches that no longer resolve to a valid commit
+        git -C "$project_dir" rev-parse --verify "$b" &>/dev/null || continue
         echo "$b"
     done
+}
+
+# Build a parent map for branches in a worktree from reflog checkout history.
+# For each branch, the parent is the branch it was created from (first appearance
+# as a checkout target in the reflog, reading oldest-first).
+# Usage: _grove_worktree_branch_parents <project_dir>
+# Outputs lines of "child|parent" (one per branch).
+# Root branches (parent not in worktree set, or base branch) show parent as "".
+_grove_worktree_branch_parents() {
+    local project_dir="$1"
+    shift
+    local base_branch_name="${GROVE_BASE_BRANCH#origin/}"
+
+    # Get branches: use provided list or discover from worktree
+    local -a wt_branches
+    if (( $# > 0 )); then
+        wt_branches=("$@")
+    else
+        wt_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+    fi
+
+    # Build set for quick lookup
+    local -A branch_set=()
+    local b
+    for b in "${wt_branches[@]}"; do
+        [[ -n "$b" ]] && branch_set[$b]=1
+    done
+
+    # Read reflog into array (newest first)
+    local -a reflog_lines=()
+    local reflog_line
+    while read -r reflog_line; do
+        reflog_lines+=("$reflog_line")
+    done < <(git -C "$project_dir" reflog --format="%gs" 2>/dev/null)
+
+    # Walk reflog oldest-first to find creation parents.
+    # The first "checkout: moving from <parent> to <branch>" for each branch
+    # is when it was created (or first checked out). The <parent> is the branch
+    # it was branched from.
+    #
+    # Special case: the worktree's initial branch (first "from" in the earliest
+    # checkout entry) was set up by git worktree add, not by checkout. Mark it
+    # as a root so switching back to it later doesn't set a false parent.
+    local -A first_parent=()
+    local initial_branch=""
+    local from to i
+
+    # Find the initial branch (the "from" of the very first checkout entry)
+    i=${#reflog_lines}
+    while (( i >= 1 )); do
+        reflog_line="${reflog_lines[$i]}"
+        if [[ "$reflog_line" == checkout:* ]]; then
+            initial_branch="${reflog_line#checkout: moving from }"
+            initial_branch="${initial_branch%% to *}"
+            [[ "$initial_branch" =~ ^[0-9a-f]{40}$ ]] && initial_branch=""
+            [[ "$initial_branch" == "HEAD" ]] && initial_branch=""
+            break
+        fi
+        (( i-- ))
+    done
+    # Mark initial branch as root
+    [[ -n "$initial_branch" ]] && first_parent[$initial_branch]="__ROOT__"
+
+    i=${#reflog_lines}
+    while (( i >= 1 )); do
+        reflog_line="${reflog_lines[$i]}"
+        if [[ "$reflog_line" == checkout:* ]]; then
+            from="${reflog_line#checkout: moving from }"
+            from="${from%% to *}"
+            to="${reflog_line##* to }"
+
+            # Skip SHAs and HEAD
+            [[ "$from" =~ ^[0-9a-f]{40}$ ]] && from=""
+            [[ "$to" =~ ^[0-9a-f]{40}$ ]] && to=""
+            [[ "$from" == "HEAD" ]] && from=""
+            [[ "$to" == "HEAD" ]] && to=""
+
+            # Record first parent for each branch (only first occurrence)
+            if [[ -n "$to" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
+                if [[ -n "$from" ]]; then
+                    # Named parent branch — record it
+                    first_parent[$to]="$from"
+                else
+                    # Parent was a SHA (rebase/worktree creation) — mark as seen
+                    # but with no named parent, so ancestry fallback kicks in
+                    first_parent[$to]="__SHA__"
+                fi
+            fi
+        fi
+        (( i-- ))
+    done
+
+    # Resolve Graphite parent for a branch, walking up the chain until we find
+    # a branch that's in the worktree set, or hit base branch.
+    # Returns: "branch_name" if found in set, "__BASE__" if hit base branch, "" if no metadata.
+    _resolve_gt_parent() {
+        local branch="$1" cur_parent meta_content steps=0
+        cur_parent="$branch"
+        while (( steps < 50 )); do
+            meta_content=$(git -C "$project_dir" cat-file -p "refs/branch-metadata/$cur_parent" 2>/dev/null)
+            [[ -z "$meta_content" ]] && break
+            cur_parent=$(echo "$meta_content" | grep -o '"parentBranchName": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+            [[ -z "$cur_parent" ]] && break
+            # Found one in our set
+            [[ -n "${branch_set[$cur_parent]+x}" ]] && echo "$cur_parent" && return 0
+            # Hit base branch
+            [[ "$cur_parent" == "$base_branch_name" ]] && echo "__BASE__" && return 0
+            (( steps++ ))
+        done
+        return 1
+    }
+
+    # Resolve parent for each branch using priority:
+    # 1. Graphite metadata (walk parentBranchName chain — source of truth for stacks)
+    # 2. Reflog-based parent (for non-Graphite branches)
+    # When Graphite chain leads to base branch, parent is set to base branch name
+    # so it can be included as a virtual root node.
+    local parent gt_resolved has_base_parent=0
+    for b in "${wt_branches[@]}"; do
+        [[ -z "$b" ]] && continue
+        parent=""
+
+        # Try Graphite metadata first (source of truth)
+        gt_resolved=$(_resolve_gt_parent "$b")
+        if [[ "$gt_resolved" == "__BASE__" ]]; then
+            parent="$base_branch_name"
+            has_base_parent=1
+        elif [[ -n "$gt_resolved" ]]; then
+            parent="$gt_resolved"
+        # Try reflog parent
+        elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
+            parent="${first_parent[$b]}"
+            if [[ "$parent" == "$base_branch_name" ]]; then
+                has_base_parent=1
+            elif [[ -z "${branch_set[$parent]+x}" ]]; then
+                parent=""
+            fi
+        fi
+
+        echo "${b}|${parent}"
+    done
+
+    # Add base branch as virtual root if any branch resolves to it
+    if (( has_base_parent )); then
+        echo "${base_branch_name}|"
+    fi
 }
 
 # Resolve branch name, checking for conflicts on remote.

@@ -13,5 +13,8 @@ jobs:
         with:
           submodules: true
 
+      - name: Install fzf
+        run: brew install fzf
+
       - name: Run tests
         run: zsh tests/run_tests.zsh
