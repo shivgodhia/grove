@@ -470,6 +470,8 @@ _grove_tui_preview() {
 
     # Per-project details with all branches
     local status_line pr_data pr_display tree_line indent marker suffix pr_key pr_indent
+    local -a tree_lines_arr
+    local tree_prefix tree_bars pad_count padding p max_prefix_len colored_prefix pr_pad bars_pad
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -490,13 +492,13 @@ _grove_tui_preview() {
 
             # Collect tree lines first to find max prefix width for alignment
             # Format: bars\tprefix name
-            local -a tree_lines_arr=()
+            tree_lines_arr=()
             while read -r tree_line; do
                 [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
             done < <(_grove_tui_render_branch_tree "$project_dir")
 
             # Find max prefix width (the "prefix" part after \t, before last space + name)
-            local max_prefix_len=0 tree_prefix tree_bars
+            max_prefix_len=0
             for tree_line in "${tree_lines_arr[@]}"; do
                 tree_prefix="${tree_line#*$'\t'}"
                 tree_prefix="${tree_prefix% *}"
@@ -504,7 +506,6 @@ _grove_tui_preview() {
             done
 
             # Render each line with aligned branch names
-            local pad_count padding p
             for tree_line in "${tree_lines_arr[@]}"; do
                 # Parse: bars\tprefix name
                 tree_bars="${tree_line%%$'\t'*}"
@@ -528,7 +529,7 @@ _grove_tui_preview() {
                     marker="\e[1;37m◉\e[0m"
                     suffix="  \e[0;90m← HEAD\e[0m"
                 fi
-                local colored_prefix="${tree_prefix//○/${marker}}"
+                colored_prefix="${tree_prefix//○/${marker}}"
 
                 # PR status
                 pr_data=""
@@ -541,8 +542,8 @@ _grove_tui_preview() {
 
                 echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}"
                 # PR line: use bars pattern (│ for active columns) + padding
-                local pr_pad=""
-                local bars_pad=$(( max_prefix_len - ${#tree_bars} ))
+                pr_pad=""
+                bars_pad=$(( max_prefix_len - ${#tree_bars} ))
                 p=0
                 while (( p < bars_pad )); do
                     pr_pad+=" "
