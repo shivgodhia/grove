@@ -264,14 +264,26 @@ _grove_tui_render_branch_tree() {
 
     # _gt_walk renders a subtree rooted at node_idx.
     # col_depth: number of │ columns to the LEFT of this subtree (from ancestor forks)
+    # _gt_walk renders a subtree rooted at node_idx.
+    # col_depth: column position of this node's ○ marker
+    # total_cols: total active columns from ancestor forks
     _gt_walk() {
-        local node_idx="$1" col_depth="$2"
+        local node_idx="$1" col_depth="$2" total_cols="${3:-$2}"
         local node_name="${names[$node_idx]}"
         local kids="${children_lists[$node_idx]}"
         local -a child_indices=()
         [[ -n "$kids" ]] && child_indices=(${(s: :)kids})
 
         local num_children=${#child_indices}
+
+        # Helper: build │ bar pattern for PR/continuation lines
+        # Shows │ for all active columns (0..total_cols-1), excluding col_depth
+        local _bars=""
+        (( j = 0 ))
+        while (( j < total_cols )); do
+            _bars+="│ "
+            (( j++ ))
+        done
 
         if (( num_children == 0 )); then
             # Leaf node
@@ -281,18 +293,18 @@ _grove_tui_render_branch_tree() {
                 prefix+="│ "
                 (( j++ ))
             done
-            output_lines+=("${prefix}○ ${node_name}")
+            output_lines+=("${_bars}\t${prefix}○ ${node_name}")
 
         elif (( num_children == 1 )); then
             # Single child — continues the line, no fork
-            _gt_walk "${child_indices[1]}" "$col_depth"
+            _gt_walk "${child_indices[1]}" "$col_depth" "$total_cols"
             local prefix=""
             (( j = 0 ))
             while (( j < col_depth )); do
                 prefix+="│ "
                 (( j++ ))
             done
-            output_lines+=("${prefix}○ ${node_name}")
+            output_lines+=("${_bars}\t${prefix}○ ${node_name}")
 
         else
             # Multiple children — fork point
@@ -304,13 +316,13 @@ _grove_tui_render_branch_tree() {
             done
             local num_sides=${#side_children}
 
-            # Walk main child at current col_depth (it continues the main line)
-            _gt_walk "$main_child" "$col_depth"
+            # Walk main child
+            _gt_walk "$main_child" "$col_depth" "$(( col_depth + num_sides ))"
 
-            # Walk each side branch at increasing col_depth
+            # Walk each side branch
             local si=0
             for ci in "${side_children[@]}"; do
-                _gt_walk "$ci" "$(( col_depth + si + 1 ))"
+                _gt_walk "$ci" "$(( col_depth + si + 1 ))" "$(( col_depth + num_sides ))"
                 (( si++ ))
             done
 
@@ -331,7 +343,16 @@ _grove_tui_render_branch_tree() {
                 fi
                 (( j++ ))
             done
-            output_lines+=("${prefix} ${node_name}")
+
+            # Bars for fork point: just the cols to the left of the fork
+            local fork_bars=""
+            (( j = 0 ))
+            while (( j < col_depth )); do
+                fork_bars+="│ "
+                (( j++ ))
+            done
+
+            output_lines+=("${fork_bars}\t${prefix} ${node_name}")
         fi
     }
 
@@ -340,7 +361,7 @@ _grove_tui_render_branch_tree() {
         _gt_walk "$i" "0"
     done
 
-    # Output all lines
+    # Output all lines (format: bars\tprefix name)
     local l
     for l in "${output_lines[@]}"; do
         echo "$l"
@@ -468,41 +489,46 @@ _grove_tui_preview() {
             echo "\e[0;33m${project}\e[0m  ${status_line}"
 
             # Collect tree lines first to find max prefix width for alignment
+            # Format: bars\tprefix name
             local -a tree_lines_arr=()
             while read -r tree_line; do
                 [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
             done < <(_grove_tui_render_branch_tree "$project_dir")
 
-            # Find max prefix width (everything before the branch name)
-            local max_prefix_len=0 prefix_part
+            # Find max prefix width (the "prefix" part after \t, before last space + name)
+            local max_prefix_len=0 tree_prefix tree_bars
             for tree_line in "${tree_lines_arr[@]}"; do
-                prefix_part="${tree_line% *}"
-                # Count display width: each char in prefix is 1 column
-                local plen=${#prefix_part}
-                (( plen > max_prefix_len )) && max_prefix_len=$plen
+                tree_prefix="${tree_line#*$'\t'}"
+                tree_prefix="${tree_prefix% *}"
+                (( ${#tree_prefix} > max_prefix_len )) && max_prefix_len=${#tree_prefix}
             done
 
             # Render each line with aligned branch names
+            local pad_count padding p
             for tree_line in "${tree_lines_arr[@]}"; do
-                b="${tree_line##* }"
-                indent="${tree_line% *}"
+                # Parse: bars\tprefix name
+                tree_bars="${tree_line%%$'\t'*}"
+                tree_prefix="${tree_line#*$'\t'}"
+                b="${tree_prefix##* }"
+                tree_prefix="${tree_prefix% *}"
 
                 # Pad prefix to max width
-                local pad_count=$(( max_prefix_len - ${#indent} ))
-                local padding=""
-                local p=0
+                pad_count=$(( max_prefix_len - ${#tree_prefix} ))
+                padding=""
+                p=0
                 while (( p < pad_count )); do
                     padding+=" "
                     (( p++ ))
                 done
 
-                # Build colored version of the line (replace ○ with marker)
+                # Build colored version of the prefix (replace ○/◉ with marker)
                 marker="○"
                 suffix=""
                 if [[ "$b" == "$head_branch" ]]; then
                     marker="\e[1;37m◉\e[0m"
                     suffix="  \e[0;90m← HEAD\e[0m"
                 fi
+                local colored_prefix="${tree_prefix//○/${marker}}"
 
                 # PR status
                 pr_data=""
@@ -513,19 +539,16 @@ _grove_tui_preview() {
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                # Replace ○ in indent with colored marker
-                local colored_indent="${indent//○/${marker}}"
-
-                echo "  ${colored_indent}${padding} \e[0;32m${b}\e[0m${suffix}"
-                # PR line: keep │ bars from indent, replace everything else with spaces
-                local pr_indent="${indent//[○─┘┴]/ }"
+                echo "  ${colored_prefix}${padding} \e[0;32m${b}\e[0m${suffix}"
+                # PR line: use bars pattern (│ for active columns) + padding
                 local pr_pad=""
+                local bars_pad=$(( max_prefix_len - ${#tree_bars} ))
                 p=0
-                while (( p < pad_count )); do
+                while (( p < bars_pad )); do
                     pr_pad+=" "
                     (( p++ ))
                 done
-                echo "  ${pr_indent}${pr_pad}   ${pr_display}"
+                echo "  ${tree_bars}${pr_pad}   ${pr_display}"
             done
             echo ""
         fi

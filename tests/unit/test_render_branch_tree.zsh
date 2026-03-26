@@ -6,13 +6,19 @@
 ZTR_SETUP_FN() { grove_test_setup; }
 ZTR_TEARDOWN_FN() { grove_test_teardown; }
 
+# Helper: extract just the visual tree output (prefix + name, without bars metadata)
+# Output format from renderer: "bars\tprefix name" — we want just "prefix name"
+_test_tree_visual() {
+    _grove_tui_render_branch_tree "$@" | sed 's/^[^'$'\t'']*'$'\t''//'
+}
+
 # ── Single branch ──────────────────────────────────────────────────────────
 
 ztr test '
     create_test_repo myapp
     gv myapp my-feature &>/dev/null
     local wt_dir="$GROVE_WORKSPACES_DIR/myapp/my-feature/myapp"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "○ testuser/my-feature" ]]
 ' 'single branch renders plain'
 
@@ -34,7 +40,7 @@ ztr test '
     local expected="○ testuser/branch-c
 ○ testuser/branch-b
 ○ testuser/branch-a"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'linear stack: all at same indent'
 
@@ -55,7 +61,7 @@ ztr test '
 ○ testuser/branch-c
 ○ testuser/branch-b
 ○ testuser/branch-a"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'deep stack: all at same indent'
 
@@ -78,7 +84,7 @@ ztr test '
     git -C "$wt_dir" checkout -b "testuser/branch-c" --quiet
     git -C "$wt_dir" commit --allow-empty -m "c" --quiet
 
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     # A is fork point with two children — one continues, one branches
     [[ "$output" == *"testuser/branch-b"* ]] &&
     [[ "$output" == *"testuser/branch-c"* ]] &&
@@ -110,7 +116,7 @@ ztr test '
 ○ testuser/branch-b
 │ ○ testuser/branch-d
 ○─┘ testuser/branch-a"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'stack with side branch: gt ls style'
 
@@ -141,7 +147,7 @@ ztr test '
 │ ○ testuser/branch-e
 ○─┘ testuser/branch-b
 ○ testuser/branch-a"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'side branch off middle: gt ls style'
 
@@ -169,7 +175,7 @@ ztr test '
 │ ○ testuser/branch-d
 │ │ ○ testuser/branch-c
 ○─┴─┘ testuser/branch-a"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'two side branches: gt ls style with ─┴─┘'
 
@@ -210,6 +216,6 @@ ztr test '
 ○ testuser/branch-c
 ○ testuser/branch-a
 ○ main"
-    local output=$(_grove_tui_render_branch_tree "$wt_dir")
+    local output=$(_test_tree_visual "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'Graphite chain with gaps renders as linear stack with main root'
