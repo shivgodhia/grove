@@ -261,7 +261,8 @@ _grove_worktree_branch_parents() {
     done
 
     # Resolve Graphite parent for a branch, walking up the chain until we find
-    # a branch that's in the worktree set (or hit main/root).
+    # a branch that's in the worktree set, or hit base branch.
+    # Returns: "branch_name" if found in set, "__BASE__" if hit base branch, "" if no metadata.
     _resolve_gt_parent() {
         local branch="$1" cur_parent meta_content steps=0
         cur_parent="$branch"
@@ -272,53 +273,47 @@ _grove_worktree_branch_parents() {
             [[ -z "$cur_parent" ]] && break
             # Found one in our set
             [[ -n "${branch_set[$cur_parent]+x}" ]] && echo "$cur_parent" && return 0
-            # Hit base branch (root)
-            [[ "$cur_parent" == "$base_branch_name" ]] && return 1
+            # Hit base branch
+            [[ "$cur_parent" == "$base_branch_name" ]] && echo "__BASE__" && return 0
             (( steps++ ))
         done
         return 1
     }
 
-    # Resolve final parent for each branch using priority:
-    # 1. Commit ancestry (closest ancestor branch in the worktree set)
-    # 2. Graphite metadata (walk chain to find nearest ancestor in worktree set)
-    # 3. Reflog-based parent (if named and in worktree set)
-    local parent distance best_parent best_distance candidate gt_resolved
+    # Resolve parent for each branch using priority:
+    # 1. Graphite metadata (walk parentBranchName chain — source of truth for stacks)
+    # 2. Reflog-based parent (for non-Graphite branches)
+    # When Graphite chain leads to base branch, parent is set to base branch name
+    # so it can be included as a virtual root node.
+    local parent gt_resolved has_base_parent=0
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
         parent=""
 
-        # Try commit ancestry first (most reliable for actual stacking)
-        best_parent=""
-        best_distance=999999
-        for candidate in "${wt_branches[@]}"; do
-            [[ -z "$candidate" || "$candidate" == "$b" ]] && continue
-            if git -C "$project_dir" merge-base --is-ancestor "$candidate" "$b" 2>/dev/null; then
-                distance=$(git -C "$project_dir" rev-list --count "${candidate}..${b}" 2>/dev/null)
-                if [[ -n "$distance" ]] && (( distance > 0 )) && (( distance < best_distance )); then
-                    best_distance=$distance
-                    best_parent="$candidate"
-                fi
-            fi
-        done
-        if [[ -n "$best_parent" ]]; then
-            parent="$best_parent"
-        else
-            # Try Graphite metadata (walks chain to find nearest in-set ancestor)
-            gt_resolved=$(_resolve_gt_parent "$b")
-            if [[ -n "$gt_resolved" ]]; then
-                parent="$gt_resolved"
-            # Try reflog parent
-            elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
-                parent="${first_parent[$b]}"
-                if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
-                    parent=""
-                fi
+        # Try Graphite metadata first (source of truth)
+        gt_resolved=$(_resolve_gt_parent "$b")
+        if [[ "$gt_resolved" == "__BASE__" ]]; then
+            parent="$base_branch_name"
+            has_base_parent=1
+        elif [[ -n "$gt_resolved" ]]; then
+            parent="$gt_resolved"
+        # Try reflog parent
+        elif [[ -n "${first_parent[$b]+x}" && "${first_parent[$b]}" != "__ROOT__" && "${first_parent[$b]}" != "__SHA__" ]]; then
+            parent="${first_parent[$b]}"
+            if [[ "$parent" == "$base_branch_name" ]]; then
+                has_base_parent=1
+            elif [[ -z "${branch_set[$parent]+x}" ]]; then
+                parent=""
             fi
         fi
 
         echo "${b}|${parent}"
     done
+
+    # Add base branch as virtual root if any branch resolves to it
+    if (( has_base_parent )); then
+        echo "${base_branch_name}|"
+    fi
 }
 
 # Resolve branch name, checking for conflicts on remote.

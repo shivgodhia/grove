@@ -208,7 +208,8 @@ ztr test '
 
     local expected="○ testuser/branch-e
 ○ testuser/branch-c
-○ testuser/branch-a"
+○ testuser/branch-a
+○ main"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
-' 'Graphite chain with gaps renders as linear stack'
+' 'Graphite chain with gaps renders as linear stack with main root'

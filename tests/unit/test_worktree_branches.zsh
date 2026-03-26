@@ -179,6 +179,8 @@ ztr test '
     [[ "$output" == *"testuser/branch-e|testuser/branch-c"* ]] &&
     # C parent should be A (nearest ancestor in set, skipping B)
     [[ "$output" == *"testuser/branch-c|testuser/branch-a"* ]] &&
-    # A is root
-    [[ "$output" == *"testuser/branch-a|"* ]]
+    # A parent is main (via Graphite metadata)
+    [[ "$output" == *"testuser/branch-a|main"* ]] &&
+    # main is the virtual root
+    [[ "$output" == *"main|"* ]]
 ' 'Graphite parent chain with gaps resolves to nearest ancestor in set'
