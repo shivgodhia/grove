@@ -260,10 +260,9 @@ _grove_tui_render_branch_tree() {
     # The walk processes: main child subtree first, then each side branch subtree.
     # The fork-point node renders with ─┘ (1 side branch) or ─┴─┘ (2+).
 
-    local -a output_lines=()
+    # output: parallel arrays of prefix (tree chars) and name
+    local -a out_prefixes=() out_names=() out_widths=()
 
-    # _gt_walk renders a subtree rooted at node_idx.
-    # col_depth: number of │ columns to the LEFT of this subtree (from ancestor forks)
     _gt_walk() {
         local node_idx="$1" col_depth="$2"
         local node_name="${names[$node_idx]}"
@@ -272,30 +271,30 @@ _grove_tui_render_branch_tree() {
         [[ -n "$kids" ]] && child_indices=(${(s: :)kids})
 
         local num_children=${#child_indices}
+        local prefix="" prefix_width
 
         if (( num_children == 0 )); then
-            # Leaf node
-            local prefix=""
+            prefix=""
             (( j = 0 ))
-            while (( j < col_depth )); do
-                prefix+="│ "
-                (( j++ ))
-            done
-            output_lines+=("${prefix}○ ${node_name}")
+            while (( j < col_depth )); do; prefix+="│ "; (( j++ )); done
+            prefix+="○"
+            (( prefix_width = col_depth * 2 + 1 ))
+            out_prefixes+=("$prefix")
+            out_names+=("$node_name")
+            out_widths+=("$prefix_width")
 
         elif (( num_children == 1 )); then
-            # Single child — continues the line, no fork
             _gt_walk "${child_indices[1]}" "$col_depth"
-            local prefix=""
+            prefix=""
             (( j = 0 ))
-            while (( j < col_depth )); do
-                prefix+="│ "
-                (( j++ ))
-            done
-            output_lines+=("${prefix}○ ${node_name}")
+            while (( j < col_depth )); do; prefix+="│ "; (( j++ )); done
+            prefix+="○"
+            (( prefix_width = col_depth * 2 + 1 ))
+            out_prefixes+=("$prefix")
+            out_names+=("$node_name")
+            out_widths+=("$prefix_width")
 
         else
-            # Multiple children — fork point
             local main_child=$(_pick_main_child "$kids")
             local -a side_children=()
             local ci
@@ -304,23 +303,17 @@ _grove_tui_render_branch_tree() {
             done
             local num_sides=${#side_children}
 
-            # Walk main child at current col_depth (it continues the main line)
             _gt_walk "$main_child" "$col_depth"
-
-            # Walk each side branch at increasing col_depth
             local si=0
             for ci in "${side_children[@]}"; do
                 _gt_walk "$ci" "$(( col_depth + si + 1 ))"
                 (( si++ ))
             done
 
-            # Render fork point: ○─┘ or ○─┴─┘ etc.
-            local prefix=""
+            # Fork point prefix
+            prefix=""
             (( j = 0 ))
-            while (( j < col_depth )); do
-                prefix+="│ "
-                (( j++ ))
-            done
+            while (( j < col_depth )); do; prefix+="│ "; (( j++ )); done
             prefix+="○"
             (( j = 0 ))
             while (( j < num_sides )); do
@@ -331,19 +324,33 @@ _grove_tui_render_branch_tree() {
                 fi
                 (( j++ ))
             done
-            output_lines+=("${prefix} ${node_name}")
+            # width: col_depth*2 + 1 (○) + num_sides*2 (─┘ or ─┴ each = 2 chars)
+            (( prefix_width = col_depth * 2 + 1 + num_sides * 2 ))
+            out_prefixes+=("$prefix")
+            out_names+=("$node_name")
+            out_widths+=("$prefix_width")
         fi
     }
 
-    # Walk each root
     for i in "${roots[@]}"; do
         _gt_walk "$i" "0"
     done
 
-    # Output all lines
-    local l
-    for l in "${output_lines[@]}"; do
-        echo "$l"
+    # Find max prefix width for alignment
+    local max_w=0
+    for i in "${out_widths[@]}"; do
+        (( i > max_w )) && max_w=$i
+    done
+
+    # Output with padding so branch names align
+    (( i = 1 ))
+    while (( i <= ${#out_prefixes} )); do
+        local pad=$(( max_w - out_widths[i] ))
+        local spaces=""
+        (( j = 0 ))
+        while (( j < pad )); do; spaces+=" "; (( j++ )); done
+        echo "${out_prefixes[$i]}${spaces} ${out_names[$i]}"
+        (( i++ ))
     done
 }
 

@@ -106,8 +106,8 @@ ztr test '
     git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
     git -C "$wt_dir" commit --allow-empty -m "d" --quiet
 
-    local expected="○ testuser/branch-c
-○ testuser/branch-b
+    local expected="○   testuser/branch-c
+○   testuser/branch-b
 │ ○ testuser/branch-d
 ○─┘ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
@@ -136,11 +136,11 @@ ztr test '
     git -C "$wt_dir" checkout -b "testuser/branch-e" --quiet
     git -C "$wt_dir" commit --allow-empty -m "e" --quiet
 
-    local expected="○ testuser/branch-d
-○ testuser/branch-c
+    local expected="○   testuser/branch-d
+○   testuser/branch-c
 │ ○ testuser/branch-e
 ○─┘ testuser/branch-b
-○ testuser/branch-a"
+○   testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
     [[ "$output" == "$expected" ]]
 ' 'side branch off middle: gt ls style'
@@ -165,8 +165,8 @@ ztr test '
     git -C "$wt_dir" checkout -b "testuser/branch-d" --quiet
     git -C "$wt_dir" commit --allow-empty -m "d" --quiet
 
-    local expected="○ testuser/branch-b
-│ ○ testuser/branch-d
+    local expected="○     testuser/branch-b
+│ ○   testuser/branch-d
 │ │ ○ testuser/branch-c
 ○─┴─┘ testuser/branch-a"
     local output=$(_grove_tui_render_branch_tree "$wt_dir")
