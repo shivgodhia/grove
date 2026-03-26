@@ -162,7 +162,77 @@ _grove_worktree_branches() {
         [[ "$b" == "$base_branch_name" ]] && continue
         # Skip raw commit SHAs (40-char hex strings)
         [[ "$b" =~ ^[0-9a-f]{40}$ ]] && continue
+        # Skip detached HEAD literal
+        [[ "$b" == "HEAD" ]] && continue
         echo "$b"
+    done
+}
+
+# Build a parent map for branches in a worktree from reflog checkout history.
+# For each branch, the parent is the branch it was created from (first appearance
+# as a checkout target in the reflog, reading oldest-first).
+# Usage: _grove_worktree_branch_parents <project_dir>
+# Outputs lines of "child|parent" (one per branch).
+# Root branches (parent not in worktree set, or base branch) show parent as "".
+_grove_worktree_branch_parents() {
+    local project_dir="$1"
+    local base_branch_name="${GROVE_BASE_BRANCH#origin/}"
+
+    # Get all branches in this worktree
+    local -a wt_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+
+    # Build set for quick lookup
+    local -A branch_set=()
+    local b
+    for b in "${wt_branches[@]}"; do
+        [[ -n "$b" ]] && branch_set[$b]=1
+    done
+
+    # Read reflog into array (newest first)
+    local -a reflog_lines=()
+    local reflog_line
+    while read -r reflog_line; do
+        reflog_lines+=("$reflog_line")
+    done < <(git -C "$project_dir" reflog --format="%gs" 2>/dev/null)
+
+    # Walk reflog oldest-first to find creation parents.
+    # The first "checkout: moving from <parent> to <branch>" for each branch
+    # is when it was created (or first checked out). The <parent> is the branch
+    # it was branched from.
+    local -A first_parent=()
+    local from to i
+    i=${#reflog_lines}
+    while (( i >= 1 )); do
+        reflog_line="${reflog_lines[$i]}"
+        if [[ "$reflog_line" == checkout:* ]]; then
+            from="${reflog_line#checkout: moving from }"
+            from="${from%% to *}"
+            to="${reflog_line##* to }"
+
+            # Skip SHAs and HEAD
+            [[ "$from" =~ ^[0-9a-f]{40}$ ]] && from=""
+            [[ "$to" =~ ^[0-9a-f]{40}$ ]] && to=""
+            [[ "$from" == "HEAD" ]] && from=""
+            [[ "$to" == "HEAD" ]] && to=""
+
+            # Record first parent for each branch (only first occurrence)
+            if [[ -n "$to" && -z "${first_parent[$to]+x}" && "$from" != "$to" ]]; then
+                first_parent[$to]="$from"
+            fi
+        fi
+        (( i-- ))
+    done
+
+    # Output parent relationships
+    local parent
+    for b in "${wt_branches[@]}"; do
+        [[ -z "$b" ]] && continue
+        parent="${first_parent[$b]}"
+        # If parent is base branch or not in our worktree set, it's a root
+        if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
+            parent=""
+        fi
+        echo "${b}|${parent}"
     done
 }
 

@@ -155,49 +155,78 @@ _grove_tui_label() {
     echo " [${REPLY_WS}]/${REPLY_INST} | ${t} "
 }
 
-# ─── Branch sorting helper ────────────────────────────────────────────────────
-# Sort branches by commit topology: topmost (child) first.
-# Usage: _grove_tui_sort_branches <project_dir> branch1 branch2 ...
-# Outputs sorted branches, one per line.
-_grove_tui_sort_branches() {
+# ─── Branch tree helper ───────────────────────────────────────────────────────
+# Render branches as a tree based on commit ancestry.
+# Usage: _grove_tui_render_branch_tree <project_dir>
+# Outputs lines of "depth|branch_name" for display.
+# Children appear before parents (leaves at top, roots at bottom).
+_grove_tui_render_branch_tree() {
     local project_dir="$1"
-    shift
-    local -a branches=("$@") sorted=() remaining=("$@")
-    local found i j is_top
 
-    while (( ${#remaining} > 0 )); do
-        found=""
-        (( i = 1 ))
-        while (( i <= ${#remaining} )); do
-            (( is_top = 1 ))
+    # Read parent relationships into parallel arrays
+    local -a names=() parents=()
+    local line b parent
+    while read -r line; do
+        b="${line%%|*}"
+        parent="${line#*|}"
+        [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
+    done < <(_grove_worktree_branch_parents "$project_dir")
+
+    # Compute depth for each branch by walking up the parent chain
+    local -a depths=()
+    local i j cur_name cur_depth steps found_parent
+    (( i = 1 ))
+    while (( i <= ${#names} )); do
+        cur_name="${parents[$i]}"
+        (( cur_depth = 0 ))
+        (( steps = 0 ))
+        while [[ -n "$cur_name" ]] && (( steps < 50 )); do
+            (( cur_depth++ ))
+            (( steps++ ))
+            found_parent=""
             (( j = 1 ))
-            while (( j <= ${#remaining} )); do
-                if (( i != j )) && [[ -n "${remaining[$i]}" && -n "${remaining[$j]}" ]]; then
-                    if git -C "$project_dir" merge-base --is-ancestor "${remaining[$i]}" "${remaining[$j]}" 2>/dev/null; then
-                        (( is_top = 0 ))
-                        break
-                    fi
+            while (( j <= ${#names} )); do
+                if [[ "${names[$j]}" == "$cur_name" ]]; then
+                    found_parent="${parents[$j]}"
+                    break
                 fi
                 (( j++ ))
             done
-            if (( is_top )); then
-                found="${remaining[$i]}"
-                remaining[$i]=""
-                remaining=("${(@)remaining:#}")
-                break
+            cur_name="$found_parent"
+        done
+        depths+=("$cur_depth")
+        (( i++ ))
+    done
+
+    # Sort by depth descending (deepest/leaves first)
+    local -a order=()
+    (( i = 1 ))
+    while (( i <= ${#names} )); do
+        order+=("$i")
+        (( i++ ))
+    done
+
+    local swapped temp
+    (( swapped = 1 ))
+    while (( swapped )); do
+        (( swapped = 0 ))
+        (( i = 1 ))
+        while (( i < ${#order} )); do
+            (( j = i + 1 ))
+            if (( depths[order[i]] < depths[order[j]] )); then
+                temp="${order[$i]}"
+                order[$i]="${order[$j]}"
+                order[$j]="$temp"
+                (( swapped = 1 ))
             fi
             (( i++ ))
         done
-        if [[ -z "$found" ]]; then
-            sorted+=("${remaining[@]}")
-            break
-        fi
-        sorted+=("$found")
     done
 
-    local b
-    for b in "${sorted[@]}"; do
-        [[ -n "$b" ]] && echo "$b"
+    # Output all branches
+    local idx
+    for idx in "${order[@]}"; do
+        echo "${depths[$idx]}|${names[$idx]}"
     done
 }
 
@@ -302,8 +331,7 @@ _grove_tui_preview() {
     }
 
     # Per-project details with all branches
-    local status_line pr_data pr_display
-    local -a sorted_branches
+    local status_line pr_data pr_display tree_line depth indent d marker suffix pr_key sha tmp_content
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -322,30 +350,40 @@ _grove_tui_preview() {
 
             echo "\e[0;33m${project}\e[0m  ${status_line}"
 
-            # Sort branches by commit topology (topmost first)
-            sorted_branches=("${(@f)$(_grove_tui_sort_branches "$project_dir" "${all_branches[@]}")}")
-            local num_branches=${#sorted_branches}
-            local idx=1
-            for b in "${sorted_branches[@]}"; do
-                [[ -z "$b" ]] && continue
+            # Render branch tree
+            while read -r tree_line; do
+                [[ -z "$tree_line" ]] && continue
+                depth="${tree_line%%|*}"
+                b="${tree_line#*|}"
+
+                # Build indent from depth
+                indent=""
+                (( d = 0 ))
+                while (( d < depth )); do
+                    indent+="│ "
+                    (( d++ ))
+                done
 
                 # Prefix: ▸ for HEAD, space otherwise
-                local prefix="  " suffix=""
-                [[ "$b" == "$head_branch" ]] && prefix="\e[1;37m▸ \e[0m" && suffix="  \e[0;90m← HEAD\e[0m"
+                marker="○"
+                suffix=""
+                if [[ "$b" == "$head_branch" ]]; then
+                    marker="\e[1;37m▸\e[0m"
+                    suffix="  \e[0;90m← HEAD\e[0m"
+                fi
 
                 # PR status
                 pr_data=""
-                local pr_key="${project}:${b}"
+                pr_key="${project}:${b}"
                 if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then
                     pr_data=$(<"${pr_tmpfiles["$pr_key"]}")
                     rm -f "${pr_tmpfiles["$pr_key"]}"
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                echo "${prefix}\e[0;32m${b}\e[0m${suffix}"
-                echo "    ${pr_display}"
-                (( idx++ ))
-            done
+                echo "  ${indent}${marker} \e[0;32m${b}\e[0m${suffix}"
+                echo "  ${indent}  ${pr_display}"
+            done < <(_grove_tui_render_branch_tree "$project_dir")
             echo ""
         fi
     done
