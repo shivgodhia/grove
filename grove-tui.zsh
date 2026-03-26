@@ -162,15 +162,25 @@ _grove_tui_label() {
 # Children appear before parents (leaves at top, roots at bottom).
 _grove_tui_render_branch_tree() {
     local project_dir="$1"
+    shift
+    local -a branch_args=("$@")
 
     # Read parent relationships into parallel arrays
     local -a names=() parents=()
     local line b parent
-    while read -r line; do
-        b="${line%%|*}"
-        parent="${line#*|}"
-        [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
-    done < <(_grove_worktree_branch_parents "$project_dir")
+    if (( ${#branch_args} > 0 )); then
+        while read -r line; do
+            b="${line%%|*}"
+            parent="${line#*|}"
+            [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
+        done < <(_grove_worktree_branch_parents "$project_dir" "${branch_args[@]}")
+    else
+        while read -r line; do
+            b="${line%%|*}"
+            parent="${line#*|}"
+            [[ -n "$b" ]] && names+=("$b") && parents+=("$parent")
+        done < <(_grove_worktree_branch_parents "$project_dir")
+    fi
 
     # Compute depth for each branch by walking up the parent chain
     local -a depths=()
@@ -331,7 +341,7 @@ _grove_tui_preview() {
     }
 
     # Per-project details with all branches
-    local status_line pr_data pr_display tree_line depth indent d marker suffix pr_key sha tmp_content
+    local status_line pr_data pr_display tree_line depth indent d marker suffix pr_key
     for project_dir in "$instance_dir"/*(N/); do
         project="${project_dir:t}"
         [[ "$project" == .* ]] && continue
@@ -372,7 +382,7 @@ _grove_tui_preview() {
                     suffix="  \e[0;90m← HEAD\e[0m"
                 fi
 
-                # PR status
+                # PR status — check branch itself, then its alias
                 pr_data=""
                 pr_key="${project}:${b}"
                 if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then

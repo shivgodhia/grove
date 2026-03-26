@@ -164,6 +164,8 @@ _grove_worktree_branches() {
         [[ "$b" =~ ^[0-9a-f]{40}$ ]] && continue
         # Skip detached HEAD literal
         [[ "$b" == "HEAD" ]] && continue
+        # Skip branches that no longer resolve to a valid commit
+        git -C "$project_dir" rev-parse --verify "$b" &>/dev/null || continue
         echo "$b"
     done
 }
@@ -176,10 +178,16 @@ _grove_worktree_branches() {
 # Root branches (parent not in worktree set, or base branch) show parent as "".
 _grove_worktree_branch_parents() {
     local project_dir="$1"
+    shift
     local base_branch_name="${GROVE_BASE_BRANCH#origin/}"
 
-    # Get all branches in this worktree
-    local -a wt_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+    # Get branches: use provided list or discover from worktree
+    local -a wt_branches
+    if (( $# > 0 )); then
+        wt_branches=("$@")
+    else
+        wt_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+    fi
 
     # Build set for quick lookup
     local -A branch_set=()
@@ -223,14 +231,27 @@ _grove_worktree_branch_parents() {
         (( i-- ))
     done
 
-    # Output parent relationships
-    local parent
+    # For branches with no reflog-based parent (or parent outside the set),
+    # fall back to commit ancestry: find the closest ancestor branch.
+    local parent distance best_parent best_distance candidate
     for b in "${wt_branches[@]}"; do
         [[ -z "$b" ]] && continue
         parent="${first_parent[$b]}"
-        # If parent is base branch or not in our worktree set, it's a root
+        # If parent is base branch or not in our worktree set, try ancestry
         if [[ "$parent" == "$base_branch_name" || -z "${branch_set[$parent]+x}" ]]; then
-            parent=""
+            best_parent=""
+            best_distance=999999
+            for candidate in "${wt_branches[@]}"; do
+                [[ -z "$candidate" || "$candidate" == "$b" ]] && continue
+                if git -C "$project_dir" merge-base --is-ancestor "$candidate" "$b" 2>/dev/null; then
+                    distance=$(git -C "$project_dir" rev-list --count "${candidate}..${b}" 2>/dev/null)
+                    if [[ -n "$distance" ]] && (( distance > 0 )) && (( distance < best_distance )); then
+                        best_distance=$distance
+                        best_parent="$candidate"
+                    fi
+                fi
+            done
+            parent="$best_parent"
         fi
         echo "${b}|${parent}"
     done
