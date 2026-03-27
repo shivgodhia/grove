@@ -145,6 +145,146 @@ _grove_tui_label() {
     echo " [${REPLY_WS}]/${REPLY_INST} | ${t} "
 }
 
+# ─── PR cache helpers ─────────────────────────────────────────────────────────
+# Cache gh pr view results briefly so preview refreshes do not re-hit the API.
+_grove_tui_pr_cache_dir() {
+    local cache_dir="${TMPDIR:-/tmp}/grove-pr-cache-${USER}"
+    mkdir -p "$cache_dir" 2>/dev/null || return 1
+    echo "$cache_dir"
+}
+
+_grove_tui_pr_cache_key() {
+    local repo_url="$1" branch="$2" sum
+    sum=$(printf '%s\n%s' "$repo_url" "$branch" | cksum | awk '{print $1}')
+    echo "$sum"
+}
+
+_grove_tui_pr_cache_get() {
+    local repo_url="$1" branch="$2" ttl="$3"
+    local cache_dir cache_file now ts payload
+    cache_dir=$(_grove_tui_pr_cache_dir) || return 1
+    cache_file="$cache_dir/$(_grove_tui_pr_cache_key "$repo_url" "$branch").cache"
+    [[ -f "$cache_file" ]] || return 1
+
+    IFS= read -r ts < "$cache_file" || return 1
+    [[ "$ts" == <-> ]] || return 1
+    now=$(date +%s)
+    (( now - ts <= ttl )) || return 1
+
+    payload=$(tail -n +2 "$cache_file" 2>/dev/null)
+    if [[ "$payload" == "__NO_PR__" ]]; then
+        echo ""
+    else
+        echo "$payload"
+    fi
+    return 0
+}
+
+_grove_tui_pr_cache_put() {
+    local repo_url="$1" branch="$2" payload="$3"
+    local cache_dir cache_file tmpf now
+    cache_dir=$(_grove_tui_pr_cache_dir) || return 1
+    cache_file="$cache_dir/$(_grove_tui_pr_cache_key "$repo_url" "$branch").cache"
+    tmpf=$(mktemp "${TMPDIR:-/tmp}/grove-pr-cache.XXXXXX") || return 1
+    now=$(date +%s)
+    {
+        echo "$now"
+        if [[ -n "$payload" ]]; then
+            echo "$payload"
+        else
+            echo "__NO_PR__"
+        fi
+    } > "$tmpf"
+    mv "$tmpf" "$cache_file" 2>/dev/null || {
+        rm -f "$tmpf"
+        return 1
+    }
+}
+
+_grove_tui_prefetch_instance_prs() {
+    local ws_name="$1" instance_name="$2"
+    local instance_dir="$GROVE_WORKSPACES_DIR/$ws_name/$instance_name"
+    [[ -d "$instance_dir" ]] || return 0
+
+    local -A pr_tmpfiles=()
+    local -A pr_repo_for_key=()
+    local -A pr_branch_for_key=()
+    local -a all_branches
+    local project_dir project repo_url b tmpf pr_key cache_data
+    local cache_ttl="${GROVE_TUI_PR_CACHE_TTL:-20}"
+
+    for project_dir in "$instance_dir"/*(N/); do
+        project="${project_dir:t}"
+        [[ "$project" == .* ]] && continue
+        if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
+            repo_url=$(git -C "$project_dir" remote get-url origin 2>/dev/null)
+            all_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
+            for b in "${all_branches[@]}"; do
+                [[ -z "$b" ]] && continue
+                cache_data=$(_grove_tui_pr_cache_get "$repo_url" "$b" "$cache_ttl")
+                [[ $? -eq 0 ]] && continue
+
+                pr_key="${project}:${b}"
+                tmpf=$(mktemp)
+                pr_tmpfiles["$pr_key"]="$tmpf"
+                pr_repo_for_key["$pr_key"]="$repo_url"
+                pr_branch_for_key["$pr_key"]="$b"
+                gh pr view "$b" --repo "$repo_url" \
+                    --json number,url,state,mergeable,reviewDecision,statusCheckRollup \
+                    --jq '{number, url, state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
+                    > "$tmpf" 2>/dev/null &
+            done
+        fi
+    done
+    wait
+
+    for pr_key tmpf in "${(@kv)pr_tmpfiles}"; do
+        cache_data=$(<"$tmpf")
+        rm -f "$tmpf"
+        _grove_tui_pr_cache_put "${pr_repo_for_key[$pr_key]}" "${pr_branch_for_key[$pr_key]}" "$cache_data" >/dev/null 2>&1
+    done
+}
+
+_grove_tui_prefetch_window() {
+    local ws_name="$1" instance_name="$2" entries_file="$3"
+    [[ -n "$entries_file" && -f "$entries_file" ]] || return 0
+
+    local -a metas=()
+    local line meta i
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        meta="${line%%$'\t'*}"
+        [[ "$meta" == "_" ]] && continue
+        metas+=("$meta")
+    done < "$entries_file"
+
+    (( ${#metas} > 0 )) || return 0
+
+    local current_meta="${ws_name}|${instance_name}"
+    local idx=0
+    for (( i = 1; i <= ${#metas}; i++ )); do
+        if [[ "${metas[$i]}" == "$current_meta" ]]; then
+            idx="$i"
+            break
+        fi
+    done
+    (( idx > 0 )) || return 0
+
+    local start=$(( idx - 2 ))
+    local end=$(( idx + 2 ))
+    (( start < 1 )) && start=1
+    (( end > ${#metas} )) && end=${#metas}
+
+    local m target_ws target_inst
+    for (( i = start; i <= end; i++ )); do
+        m="${metas[$i]}"
+        target_ws="${m%%|*}"
+        target_inst="${m#*|}"
+        [[ "$target_ws|$target_inst" == "$current_meta" ]] && continue
+        (_grove_tui_prefetch_instance_prs "$target_ws" "$target_inst" >/dev/null 2>&1) &!
+    done
+}
+
 # ─── Branch tree helper ───────────────────────────────────────────────────────
 # Render branches as a tree in gt-ls style.
 # Usage: _grove_tui_render_branch_tree <project_dir> [branch1 branch2 ...]
@@ -480,12 +620,16 @@ _grove_tui_preview() {
     setopt localoptions typesetsilent
 
     local line="$1"
+    local entries_file="$2"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
 
     local REPLY_WS REPLY_INST
     _grove_tui_parse_selection "$line"
     local ws_name="$REPLY_WS"
     local instance_name="$REPLY_INST"
+
+    # Warm neighboring entries (current ±2) in the background.
+    _grove_tui_prefetch_window "$ws_name" "$instance_name" "$entries_file"
 
     local instance_dir="$workspaces_dir/$ws_name/$instance_name"
     if [[ ! -d "$instance_dir" ]]; then
@@ -504,9 +648,13 @@ _grove_tui_preview() {
 
     # Collect all branches per project and kick off parallel PR fetches
     local -A pr_tmpfiles=()
+    local -A pr_repo_for_key=()
+    local -A pr_branch_for_key=()
+    local -A pr_results=()
     local project_dir project branch repo_url head_branch
     local -a all_branches
-    local tmpf b
+    local tmpf b cache_ttl cache_data pr_key
+    cache_ttl="${GROVE_TUI_PR_CACHE_TTL:-20}"
 
     if command -v gh &>/dev/null; then
         for project_dir in "$instance_dir"/*(N/); do
@@ -517,8 +665,16 @@ _grove_tui_preview() {
                 all_branches=("${(@f)$(_grove_worktree_branches "$project_dir")}")
                 for b in "${all_branches[@]}"; do
                     [[ -z "$b" ]] && continue
+                    pr_key="${project}:${b}"
+                    cache_data=$(_grove_tui_pr_cache_get "$repo_url" "$b" "$cache_ttl")
+                    if [[ $? -eq 0 ]]; then
+                        pr_results["$pr_key"]="$cache_data"
+                        continue
+                    fi
                     tmpf=$(mktemp)
-                    pr_tmpfiles["${project}:${b}"]="$tmpf"
+                    pr_tmpfiles["$pr_key"]="$tmpf"
+                    pr_repo_for_key["$pr_key"]="$repo_url"
+                    pr_branch_for_key["$pr_key"]="$b"
                     gh pr view "$b" --repo "$repo_url" \
                         --json number,url,state,mergeable,reviewDecision,statusCheckRollup \
                         --jq '{number, url, state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
@@ -527,6 +683,14 @@ _grove_tui_preview() {
             fi
         done
         wait
+
+        # Read fetched data, cache it, and keep in-memory for this render.
+        for pr_key tmpf in "${(@kv)pr_tmpfiles}"; do
+            cache_data=$(<"$tmpf")
+            rm -f "$tmpf"
+            pr_results["$pr_key"]="$cache_data"
+            _grove_tui_pr_cache_put "${pr_repo_for_key[$pr_key]}" "${pr_branch_for_key[$pr_key]}" "$cache_data" >/dev/null 2>&1
+        done
     fi
 
     # Helper: format PR status from fetched data
@@ -645,10 +809,7 @@ _grove_tui_preview() {
                 # PR status
                 pr_data=""
                 pr_key="${project}:${b}"
-                if [[ -n "${pr_tmpfiles["$pr_key"]}" ]]; then
-                    pr_data=$(<"${pr_tmpfiles["$pr_key"]}")
-                    rm -f "${pr_tmpfiles["$pr_key"]}"
-                fi
+                pr_data="${pr_results["$pr_key"]}"
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
                 pr_pad_count=$(( max_branch_detail_len - ${#b} ))
@@ -703,9 +864,13 @@ _grove_tui_new() {
 _grove_tui() {
     local entries
     entries=$(_grove_tui_list_entries)
+    local entries_file
+    entries_file=$(mktemp)
+    printf '%s\n' "$entries" > "$entries_file"
 
     # Empty state: jump straight to new instance flow
     if [[ -z "$entries" ]]; then
+        rm -f "$entries_file"
         echo "No workspace instances yet. Let's create one."
         echo ""
         _grove_tui_new
@@ -714,7 +879,7 @@ _grove_tui() {
 
     # Determine preview command — need to re-source grove.zsh in the subprocess
     local _grove_tui_script_dir="${${(%):-%x}:A:h}"
-    local preview_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_preview \"\$1\"' -- {}"
+    local preview_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_preview \"\$1\" \"\$2\"' -- {} \"$entries_file\""
 
     # Extract workspace/instance + repo type for preview label
     local label_cmd="zsh -c 'source \"${_grove_tui_script_dir}/grove.zsh\"; _grove_tui_label \"\$1\"' -- {}"
@@ -745,6 +910,7 @@ _grove_tui() {
     local selection="${result#*$'\n'}"
 
     if [[ -z "$selection" ]]; then
+        rm -f "$entries_file"
         return 0
     fi
 
@@ -755,6 +921,7 @@ _grove_tui() {
     local instance_name="$REPLY_INST"
 
     if [[ -z "$ws_name" || -z "$instance_name" ]]; then
+        rm -f "$entries_file"
         return 0
     fi
 
@@ -776,4 +943,6 @@ _grove_tui() {
             gv "$ws_name" "$instance_name"
             ;;
     esac
+
+    rm -f "$entries_file"
 }
