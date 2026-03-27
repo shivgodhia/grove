@@ -617,11 +617,7 @@ _grove_tui_preview() {
             for tree_line in "${tree_lines_arr[@]}"; do
                 tree_prefix="${tree_line#*$'\t'}"
                 b="${tree_prefix##* }"
-                head_plain=""
-                if [[ "$b" == "$head_branch" ]]; then
-                    head_plain="  ← HEAD"
-                fi
-                branch_detail_len=$(( ${#b} + ${#head_plain} ))
+                branch_detail_len=${#b}
                 (( branch_detail_len > max_branch_detail_len )) && max_branch_detail_len=$branch_detail_len
             done
 
@@ -633,13 +629,8 @@ _grove_tui_preview() {
 
                 # Build colored version of the prefix (replace ○/◉ with marker)
                 marker="○"
-                suffix=""
                 if [[ "$b" == "$head_branch" ]]; then
                     marker="\e[1;37m◉\e[0m"
-                    suffix="  \e[0;90m← HEAD\e[0m"
-                    head_plain="  ← HEAD"
-                else
-                    head_plain=""
                 fi
                 colored_prefix=$(_grove_tui_colorize_tree_prefix "$tree_prefix" "$marker")
                 branch_color=$(_grove_tui_tree_depth_color "$tree_prefix")
@@ -660,8 +651,7 @@ _grove_tui_preview() {
                 fi
                 pr_display=$(_grove_tui_format_pr "$pr_data")
 
-                branch_detail_len=$(( ${#b} + ${#head_plain} ))
-                pr_pad_count=$(( max_branch_detail_len - branch_detail_len ))
+                pr_pad_count=$(( max_branch_detail_len - ${#b} ))
                 pr_padding=""
                 p=0
                 while (( p < pr_pad_count )); do
@@ -669,7 +659,7 @@ _grove_tui_preview() {
                     (( p++ ))
                 done
 
-                echo "  ${colored_prefix}${padding} ${branch_color}${b}\e[0m${suffix}${pr_padding}  ${pr_display}"
+                echo "  ${colored_prefix}${padding} ${branch_color}${b}\e[0m${pr_padding}  ${pr_display}"
             done
             echo ""
         fi
