@@ -15,21 +15,10 @@ _grove_fzf_available 2>/dev/null || return 0
 # Sets REPLY_WS and REPLY_INST in the caller's scope.
 _grove_tui_parse_selection() {
     local line="$1"
-    # Strip ANSI escape codes
-    local clean=$(echo "$line" | sed $'s/\x1b\\[[0-9;]*m//g')
-    # Field 1 (tab-separated): [workspace]  →  extract name from brackets
-    local field1="${clean%%$'\t'*}"
-    REPLY_WS="${field1%%]*}"
-    REPLY_WS="${REPLY_WS#\[}"
-    REPLY_WS="${REPLY_WS## }"
-    REPLY_WS="${REPLY_WS%% }"
-    # Field 2 is tmux icon — skip it
-    local rest="${clean#*$'\t'}"
-    rest="${rest#*$'\t'}"
-    # Field 3 (tab-separated): instance name (may have trailing spaces from padding)
-    local field3="${rest%%$'\t'*}"
-    # Trim leading/trailing spaces (use sed for reliable multi-space trim)
-    REPLY_INST=$(echo "$field3" | sed 's/^ *//;s/ *$//')
+    # Column 1 (tab-separated, hidden from display) contains "workspace|instance"
+    local metadata="${line%%$'\t'*}"
+    REPLY_WS="${metadata%%|*}"
+    REPLY_INST="${metadata#*|}"
 }
 
 # ─── List entries ────────────────────────────────────────────────────────────
@@ -116,10 +105,11 @@ _grove_tui_list_entries() {
     }
 
     # Column headings
+    # Hidden column 1 (metadata) + visible columns
     local c_dim=$'\e[0;90m'
     local ws_hdr=$(printf "%-${max_ws}s" "Workspace")
     local inst_hdr=$(printf "%-${max_inst}s" "Name")
-    echo "${c_dim}${ws_hdr}${c_reset}\t${c_dim}Tmux${c_reset}\t${c_dim}${inst_hdr}${c_reset}\t${c_dim}Branch${c_reset}"
+    echo "_\t${c_dim}${ws_hdr}${c_reset}\t${c_dim}Tmux${c_reset}\t${c_dim}${inst_hdr}${c_reset}\t${c_dim}Branch${c_reset}"
 
     # Data rows
     local row ws inst br tmux_flag tmux_icon ws_padded inst_padded br_display
@@ -141,7 +131,7 @@ _grove_tui_list_entries() {
         ws_padded=$(printf "%-${max_ws}s" "$ws_text")
         inst_padded=$(printf "%-${max_inst}s" "$inst_text")
 
-        echo "${c_ws}${ws_padded}${c_reset}\t${tmux_icon}\t${c_inst}${inst_padded}${c_reset}\t${c_branch}${br_display}${c_reset}"
+        echo "${ws}|${inst}\t${c_ws}${ws_padded}${c_reset}\t${tmux_icon}\t${c_inst}${inst_padded}${c_reset}\t${c_branch}${br_display}${c_reset}"
     done
 }
 
@@ -744,7 +734,8 @@ _grove_tui() {
     result=$(echo "$entries" | fzf \
         --ansi \
         --delimiter=$'\t' \
-        --nth=1,3 \
+        --with-nth=2.. \
+        --nth=2,4 \
         --tabstop=2 \
         --header="Grove  (enter: open  ctrl-n: new  del/ctrl-x: remove)" \
         --header-lines=1 \

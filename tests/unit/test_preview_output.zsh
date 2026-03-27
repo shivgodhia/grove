@@ -8,8 +8,8 @@ ZTR_TEARDOWN_FN() { grove_test_teardown; }
 # Helper: render preview for a workspace/instance and check for variable leaks
 _test_preview() {
     local ws="$1" inst="$2"
-    # Simulate an fzf selection line (tab-separated: [ws] \t tmux \t inst \t branch)
-    local fake_line="[${ws}]"$'\t'"  ○ "$'\t'"${inst}"$'\t'"testuser/${inst}"
+    # Simulate an fzf selection line (tab-separated: metadata \t [ws] \t tmux \t inst \t branch)
+    local fake_line="${ws}|${inst}"$'\t'"[${ws}]"$'\t'"  ○ "$'\t'"${inst}"$'\t'"testuser/${inst}"
     _grove_tui_preview "$fake_line" 2>/dev/null
 }
 
