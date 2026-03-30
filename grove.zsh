@@ -34,6 +34,11 @@
 : ${GROVE_BASE_BRANCH:="origin/main"}
 : ${GROVE_BRANCH_PREFIX:="$USER"}
 
+# Auto-update — check for updates once per day when gv is invoked.
+# Set GROVE_AUTO_UPDATE=0 in grove.local.zsh to disable.
+: ${GROVE_AUTO_UPDATE:=1}
+: ${GROVE_UPDATE_CHECK_INTERVAL:=86400}
+
 # Post-create hooks — commands to run after creating a worktree for a project.
 typeset -gA grove_post_create_commands
 
@@ -439,10 +444,35 @@ _grove_list_all_workspaces() {
     echo "${all_workspaces[*]}"
 }
 
+# ─── Auto-update ─────────────────────────────────────────────────────────────
+_grove_auto_update() {
+    [[ "$GROVE_AUTO_UPDATE" == "0" ]] && return 0
+
+    local cache_file="$GROVE_SCRIPT_DIR/.grove_update_cache"
+    local now=$(date +%s)
+    local last_check=0
+
+    if [[ -f "$cache_file" ]]; then
+        last_check=$(<"$cache_file")
+    fi
+
+    if (( now - last_check < GROVE_UPDATE_CHECK_INTERVAL )); then
+        return 0
+    fi
+
+    echo "$now" > "$cache_file"
+    gv --update
+}
+
 # ─── Main function ───────────────────────────────────────────────────────────
 gv() {
     local projects_dir="$GROVE_PROJECTS_DIR"
     local workspaces_dir="$GROVE_WORKSPACES_DIR"
+
+    # Auto-update check (skip if this is already an --update call)
+    if [[ "$1" != "--update" ]]; then
+        _grove_auto_update
+    fi
 
     # Handle special flags
     if [[ "$1" == "--help" ]]; then
@@ -507,15 +537,22 @@ RUNNING A ONE-OFF COMMAND
 OTHER COMMANDS
   gv --list     List all workspaces and their instances
   gv --home     cd to your projects directory
-  gv --update   Pull the latest grove updates from git
+  gv --update   Pull the latest grove updates from git (must be on main)
   gv --help     Show this help
+
+AUTO-UPDATE
+  Grove checks for updates once per day when gv is invoked. If the grove
+  repo is on main and updates are available, they are pulled automatically.
+  Set GROVE_AUTO_UPDATE=0 in grove.local.zsh to disable.
 
 CONFIGURATION
   Override defaults in grove.local.zsh (gitignored):
-    GROVE_PROJECTS_DIR         Where git repos live (default: ~/groveyard)
-    GROVE_BASE_BRANCH          Base branch for new worktrees (default: origin/main)
-    GROVE_BRANCH_PREFIX        Prefix for new branches (default: your username)
-    GROVE_WORKSPACES_DIR       Where workspaces are created (default: $GROVE_PROJECTS_DIR/workspaces)
+    GROVE_PROJECTS_DIR              Where git repos live (default: ~/groveyard)
+    GROVE_BASE_BRANCH               Base branch for new worktrees (default: origin/main)
+    GROVE_BRANCH_PREFIX             Prefix for new branches (default: your username)
+    GROVE_WORKSPACES_DIR            Where workspaces are created (default: $GROVE_PROJECTS_DIR/workspaces)
+    GROVE_AUTO_UPDATE               Enable auto-update check (default: 1, set 0 to disable)
+    GROVE_UPDATE_CHECK_INTERVAL     Seconds between update checks (default: 86400 = 24h)
 
   Workspace definitions (multi-project):
     grove_workspaces[fullstack]="frontend backend"
@@ -532,11 +569,24 @@ HELP
         cd "$projects_dir"
         return 0
     elif [[ "$1" == "--update" ]]; then
-        echo "Updating grove from $(git -C "$GROVE_SCRIPT_DIR" remote get-url origin)..."
-        if git -C "$GROVE_SCRIPT_DIR" pull --ff-only; then
-            echo "Grove updated. Restart your shell or run: source ~/.zshrc"
+        local current_branch
+        current_branch=$(git -C "$GROVE_SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [[ "$current_branch" != "main" ]]; then
+            echo "Grove: can't update — grove repo is on branch '$current_branch', not main." >&2
+            echo "  Run: cd $GROVE_SCRIPT_DIR && git checkout main && gv --update" >&2
+            return 1
+        fi
+        git -C "$GROVE_SCRIPT_DIR" fetch origin --quiet 2>/dev/null
+        if [[ "$(git -C "$GROVE_SCRIPT_DIR" rev-parse HEAD)" == "$(git -C "$GROVE_SCRIPT_DIR" rev-parse origin/main)" ]]; then
+            echo "Grove is already up to date."
+            return 0
+        fi
+        local latest_msg
+        latest_msg=$(git -C "$GROVE_SCRIPT_DIR" log HEAD..origin/main --format='%s' -1)
+        if git -C "$GROVE_SCRIPT_DIR" merge --ff-only origin/main --quiet 2>/dev/null; then
+            echo "Grove updated (latest: $latest_msg). Restart your shell or run: source ~/.zshrc"
         else
-            echo "Update failed. You may have local changes — check $GROVE_SCRIPT_DIR" >&2
+            echo "Grove update failed. You may have local changes — check $GROVE_SCRIPT_DIR" >&2
             return 1
         fi
         return 0
