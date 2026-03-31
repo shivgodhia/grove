@@ -72,8 +72,8 @@ _grove_tui_list_entries() {
     done
 
     # Ensure headings fit
-    (( ${#:- Workspace} > max_ws )) && max_ws=${#:- Workspace}
-    (( ${#:-Name} > max_inst )) && max_inst=${#:-Name}
+    (( ${#:- Project} > max_ws )) && max_ws=${#:- Project}
+    (( ${#:-Workspace} > max_inst )) && max_inst=${#:-Workspace}
 
     # Calculate max column widths based on terminal width
     # fzf preview takes ~65%, so list area is ~35% of terminal
@@ -107,8 +107,8 @@ _grove_tui_list_entries() {
     # Column headings
     # Hidden column 1 (metadata) + visible columns
     local c_dim=$'\e[0;90m'
-    local ws_hdr=$(printf "%-${max_ws}s" "Workspace")
-    local inst_hdr=$(printf "%-${max_inst}s" "Name")
+    local ws_hdr=$(printf "%-${max_ws}s" "Project")
+    local inst_hdr=$(printf "%-${max_inst}s" "Workspace")
     echo "_\t${c_dim}${ws_hdr}${c_reset}\t${c_dim}Tmux${c_reset}\t${c_dim}${inst_hdr}${c_reset}\t${c_dim}Branch${c_reset}"
 
     # Data rows
