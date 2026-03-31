@@ -1186,7 +1186,7 @@ _grove_tui() {
         --ansi \
         --delimiter=$'\t' \
         --with-nth=2.. \
-        --nth=2,4 \
+        --nth=1,3,4 \
         --tabstop=2 \
         --header="Grove  (enter: open  ctrl-n: new  del/ctrl-x: remove)" \
         --header-lines=1 \
