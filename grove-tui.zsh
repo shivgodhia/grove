@@ -1084,7 +1084,7 @@ _grove_tui_preview() {
                 # Build colored version of the prefix (replace ○/◉ with marker)
                 marker="○"
                 if [[ "$b" == "$head_branch" ]]; then
-                    marker="\e[1;37m◉\e[0m"
+                    marker="◉"
                 fi
                 colored_prefix=$(_grove_tui_colorize_tree_prefix "$tree_prefix" "$marker")
                 branch_color=$(_grove_tui_tree_depth_color "$tree_prefix")
