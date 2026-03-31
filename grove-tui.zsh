@@ -256,8 +256,8 @@ _grove_tui_fetch_pr_payload() {
     local errf out rc
     errf=$(mktemp "${TMPDIR:-/tmp}/grove-pr-fetch.XXXXXX") || return 1
     out=$(gh pr view "$branch" --repo "$repo_url" \
-        --json number,url,state,mergeable,reviewDecision,statusCheckRollup \
-        --jq '{number, url, state, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
+        --json number,url,state,isDraft,mergeable,reviewDecision,statusCheckRollup \
+        --jq '{number, url, state, isDraft, mergeable, reviewDecision, ci: ([.statusCheckRollup[] | if .status == "COMPLETED" then (if .conclusion == "SUCCESS" or .conclusion == "SKIPPED" then "ok" else "fail" end) elif .status == "IN_PROGRESS" then "pending" else "ok" end] | if any(. == "fail") then "FAILURE" elif any(. == "pending") then "PENDING" else "SUCCESS" end)}' \
         2>"$errf")
     rc=$?
     if (( rc == 0 )) && [[ -n "$out" ]]; then
@@ -827,6 +827,123 @@ _grove_tui_tree_depth_color() {
     echo "${c_rainbow[$idx]}"
 }
 
+# ─── PR status formatting ────────────────────────────────────────────────────
+
+# Format a single PR status column: returns "icon label\tcolor_code".
+# Usage: _grove_tui_format_pr_column <col_name> <value>
+#
+# Column definitions:
+#   status:      Open / Closed / Merged / Draft
+#   review:      Approved / Changes Req. / Awaiting
+#   merge:       Mergeable / Conflicts / Checking
+#   ci:          Passed / Failing / Running
+_grove_tui_format_pr_column() {
+    local col="$1" val="$2"
+    local icon="" label="" color=""
+    case "$col" in
+        status)
+            case "$val" in
+                OPEN)    icon="●"; label="Open";   color="32" ;;
+                MERGED)  icon="●"; label="Merged"; color="35" ;;
+                CLOSED)  icon="●"; label="Closed"; color="31" ;;
+                DRAFT)   icon="●"; label="Draft";  color="90" ;;
+                *)       icon="●"; label="Open";   color="32" ;;
+            esac
+            ;;
+        review)
+            case "$val" in
+                APPROVED)          icon="✓"; label="Approved";     color="32" ;;
+                CHANGES_REQUESTED) icon="✗"; label="Changes Req."; color="31" ;;
+                *)                 icon="○"; label="Awaiting";     color="90" ;;
+            esac
+            ;;
+        merge)
+            case "$val" in
+                MERGEABLE)   icon="↑"; label="Mergeable"; color="32" ;;
+                CONFLICTING) icon="⚡"; label="Conflicts"; color="31" ;;
+                *)           icon="○"; label="Checking";  color="90" ;;
+            esac
+            ;;
+        ci)
+            case "$val" in
+                SUCCESS) icon="✓"; label="Passed";  color="32" ;;
+                FAILURE) icon="✗"; label="Failing"; color="31" ;;
+                PENDING) icon="●"; label="Running"; color="33" ;;
+                *)       icon="○"; label="Running"; color="33" ;;
+            esac
+            ;;
+    esac
+    echo "${icon} ${label}"$'\t'"${color}"
+}
+
+# Column widths (max visible chars of "icon label" per column).
+# Status: "● Merged"=8, Review: "✗ Changes Req."=14, Merge: "⚡ Conflicts"=11, CI: "● Running"=9
+typeset -gA _GROVE_PR_COL_WIDTHS=(
+    [status]=8
+    [review]=14
+    [merge]=11
+    [ci]=9
+)
+
+# Pad a string to a fixed visible width. ANSI codes are not counted.
+# Usage: _grove_tui_pad_ansi <ansi_string> <target_width>
+_grove_tui_pad_ansi() {
+    local str="$1" target="$2"
+    # Strip ANSI to measure visible length
+    local plain="${str//$'\e'\[*m/}"
+    local vis_len=${#plain}
+    local pad=$(( target - vis_len ))
+    local spaces=""
+    (( pad > 0 )) && printf -v spaces '%*s' "$pad" ''
+    echo "${str}${spaces}"
+}
+
+_grove_tui_format_pr() {
+    local pr_data="$1"
+    if [[ "$pr_data" == "__LOADING__" ]]; then
+        echo "\e[0;90mPR loading...\e[0m"
+        return
+    fi
+    if [[ "$pr_data" == "__ERR__" ]]; then
+        echo "\e[0;90mPR unavailable\e[0m"
+        return
+    fi
+    if [[ -z "$pr_data" ]]; then
+        echo "\e[0;90mNo PR\e[0m"
+        return
+    fi
+    local pr_state pr_mergeable pr_review pr_ci_status pr_number pr_url
+    pr_state=$(echo "$pr_data" | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4)
+    pr_number=$(echo "$pr_data" | grep -o '"number":[0-9]*' | head -1 | cut -d: -f2)
+    pr_url=$(echo "$pr_data" | grep -o '"url":"[^"]*"' | head -1 | cut -d'"' -f4)
+    pr_mergeable=$(echo "$pr_data" | grep -o '"mergeable":"[^"]*"' | head -1 | cut -d'"' -f4)
+    pr_review=$(echo "$pr_data" | grep -o '"reviewDecision":"[^"]*"' | head -1 | cut -d'"' -f4)
+    pr_ci_status=$(echo "$pr_data" | grep -o '"ci":"[^"]*"' | head -1 | cut -d'"' -f4)
+    local pr_draft=$(echo "$pr_data" | grep -o '"isDraft":true' | head -1)
+
+    # Override state to DRAFT if isDraft is true
+    [[ -n "$pr_draft" ]] && pr_state="DRAFT"
+
+    # PR number as clickable link (OSC 8 hyperlink)
+    local result=""
+    if [[ -n "$pr_number" && -n "$pr_url" ]]; then
+        result+="\e]8;;${pr_url}\e\\PR #${pr_number}\e]8;;\e\\"
+    else
+        result+="PR"
+    fi
+
+    local col_name col_val col_raw col_color col_rendered
+    for col_name col_val in status "$pr_state" review "$pr_review" merge "$pr_mergeable" ci "$pr_ci_status"; do
+        col_raw=$(_grove_tui_format_pr_column "$col_name" "$col_val")
+        local plain_text="${col_raw%%$'\t'*}"
+        col_color="${col_raw##*$'\t'}"
+        col_rendered="\e[0;${col_color}m${plain_text}\e[0m"
+        col_rendered=$(_grove_tui_pad_ansi "$col_rendered" "${_GROVE_PR_COL_WIDTHS[$col_name]}")
+        result+="  ${col_rendered}"
+    done
+    echo "$result"
+}
+
 # ─── Preview ─────────────────────────────────────────────────────────────────
 # Show details for the highlighted instance in fzf's preview pane.
 # Receives the raw fzf line as $1, parses out workspace and instance.
@@ -909,60 +1026,6 @@ _grove_tui_preview() {
         fi
     fi
     _grove_tui_timing_enabled && _grove_tui_timing_log "preview_pr_fetch" "$pr_fetch_start_us" "hits=${fetch_hits},misses=${fetch_misses},spawned=${fetch_spawned},queued_prefetch=${queued_prefetch}"
-
-    # Helper: format PR status from fetched data
-    _grove_tui_format_pr() {
-        local pr_data="$1"
-        if [[ "$pr_data" == "__LOADING__" ]]; then
-            echo "\e[0;90mPR loading...\e[0m"
-            return
-        fi
-        if [[ "$pr_data" == "__ERR__" ]]; then
-            echo "\e[0;90mPR unavailable\e[0m"
-            return
-        fi
-        if [[ -z "$pr_data" ]]; then
-            echo "\e[0;90mNo PR\e[0m"
-            return
-        fi
-        local pr_state pr_mergeable pr_review pr_ci_status pr_number pr_url
-        pr_state=$(echo "$pr_data" | grep -o '"state":"[^"]*"' | head -1 | cut -d'"' -f4)
-        pr_number=$(echo "$pr_data" | grep -o '"number":[0-9]*' | head -1 | cut -d: -f2)
-        pr_url=$(echo "$pr_data" | grep -o '"url":"[^"]*"' | head -1 | cut -d'"' -f4)
-        pr_mergeable=$(echo "$pr_data" | grep -o '"mergeable":"[^"]*"' | head -1 | cut -d'"' -f4)
-        pr_review=$(echo "$pr_data" | grep -o '"reviewDecision":"[^"]*"' | head -1 | cut -d'"' -f4)
-        pr_ci_status=$(echo "$pr_data" | grep -o '"ci":"[^"]*"' | head -1 | cut -d'"' -f4)
-
-        # PR number as clickable link (OSC 8 hyperlink)
-        local result=""
-        if [[ -n "$pr_number" && -n "$pr_url" ]]; then
-            result+="\e]8;;${pr_url}\e\\PR #${pr_number}\e]8;;\e\\"
-        else
-            result+="PR"
-        fi
-        result+="  "
-        case "$pr_state" in
-            OPEN)    result+="\e[0;32mOpen\e[0m" ;;
-            MERGED)  result+="\e[0;35mMerged\e[0m" ;;
-            CLOSED)  result+="\e[0;31mClosed\e[0m" ;;
-            *)       result+="$pr_state" ;;
-        esac
-        case "$pr_review" in
-            APPROVED)          result+="  \e[0;32m✓ Approved\e[0m" ;;
-            CHANGES_REQUESTED) result+="  \e[0;31m✗ Changes requested\e[0m" ;;
-            REVIEW_REQUIRED)   result+="  \e[0;33m● Review required\e[0m" ;;
-        esac
-        case "$pr_mergeable" in
-            MERGEABLE)   result+="  \e[0;32m↑ Mergeable\e[0m" ;;
-            CONFLICTING) result+="  \e[0;31m⚡ Conflicts\e[0m" ;;
-        esac
-        case "$pr_ci_status" in
-            FAILURE) result+="  \e[0;31m✗ CI failing\e[0m" ;;
-            PENDING) result+="  \e[0;33m● CI running\e[0m" ;;
-            SUCCESS) result+="  \e[0;32m✓ CI passed\e[0m" ;;
-        esac
-        echo "$result"
-    }
 
     # Per-project details with all branches
     local status_line pr_data pr_display tree_line indent marker suffix pr_key
