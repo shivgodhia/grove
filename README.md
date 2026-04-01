@@ -40,7 +40,25 @@ Copy this prompt into Claude Code (or your AI tool of choice):
 ```
 Clone [grove](https://github.com/shivgodhia/grove) to ~/.zsh/grove and add `source ~/.zsh/grove/grove.zsh`
 to my .zshrc. Then walk me through setting up ~/.zsh/grove/grove.local.zsh step by step,
-asking me one question at a time:
+asking me one question at a time.
+
+Before anything else, check that all required dependencies are installed by running
+`command -v git && command -v tmux && command -v fzf` and inspecting the output. The requirements are:
+- git (2.5+ for worktree support) — check version with `git --version`
+- tmux — required for workspace session management
+- fzf — required for the interactive TUI dashboard and fuzzy Tab completion
+
+For any missing tool, help the user install it:
+- On macOS: `brew install <tool>` (if Homebrew is missing, walk them through installing it first
+  via https://brew.sh)
+- On Debian/Ubuntu: `sudo apt install <tool>`
+- On Arch: `sudo pacman -S <tool>`
+- On Fedora: `sudo dnf install <tool>`
+
+After installing, re-verify each tool is available before continuing. Do NOT proceed with the
+rest of the setup until all three are confirmed present.
+
+Then walk through configuration:
 
 1. Ask where my "projects directory" is — explain this is a single parent folder where all my git clones
    live for grove, and that workspaces get created in a `workspaces/` subdirectory inside it. This MUST be
@@ -246,5 +264,6 @@ tmux source-file ~/.config/tmux/tmux.conf
 
 - Zsh
 - Git 2.5+ (for worktree support)
-- tmux
-- fzf (optional, for fuzzy Tab completion)
+- tmux (for workspace session management)
+- fzf (for interactive TUI dashboard and fuzzy Tab completion)
+- gh (optional, for PR status in TUI preview pane)
