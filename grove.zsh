@@ -535,6 +535,7 @@ RUNNING A ONE-OFF COMMAND
   Runs a command in the workspace directory without tmux.
 
 OTHER COMMANDS
+  gv --ls       Show branch tree for the current workspace (like the TUI preview)
   gv --list     List all workspaces and their instances
   gv --home     cd to your projects directory
   gv --update   Pull the latest grove updates from git (must be on main)
@@ -589,6 +590,94 @@ HELP
             echo "Grove update failed. You may have local changes — check $GROVE_SCRIPT_DIR" >&2
             return 1
         fi
+        return 0
+    elif [[ "$1" == "--ls" ]]; then
+        # Show branch tree for the current workspace instance (like the TUI preview, without PR statuses)
+        local cwd="$PWD"
+        if [[ "$cwd" != "$workspaces_dir/"* ]]; then
+            echo "Not inside a grove-managed workspace"
+            return 1
+        fi
+        local relative="${cwd#$workspaces_dir/}"
+        local _ls_workspace="${relative%%/*}"
+        local _ls_instance="${${relative#*/}%%/*}"
+        if [[ -z "$_ls_workspace" || -z "$_ls_instance" ]]; then
+            echo "Could not determine workspace/instance from current path"
+            return 1
+        fi
+        local _ls_instance_dir="$workspaces_dir/$_ls_workspace/$_ls_instance"
+        if [[ ! -d "$_ls_instance_dir" ]]; then
+            echo "Instance not found: $_ls_instance_dir"
+            return 1
+        fi
+
+        # Ensure TUI functions are available (for tree rendering)
+        if ! (( $+functions[_grove_tui_render_branch_tree] )); then
+            echo "Branch tree rendering not available (grove-tui.zsh not loaded)"
+            return 1
+        fi
+
+        local project_dir project head_branch status_line
+        local -a all_branches tree_lines_arr
+        local tree_line tree_prefix b marker colored_prefix branch_color
+        local max_prefix_len pad_count padding p
+
+        for project_dir in "$_ls_instance_dir"/*(N/); do
+            project="${project_dir:t}"
+            [[ "$project" == .* ]] && continue
+            if [[ -d "$project_dir/.git" || -f "$project_dir/.git" ]]; then
+                head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+                # Check dirty status
+                if ! git -C "$project_dir" diff --quiet 2>/dev/null || \
+                   ! git -C "$project_dir" diff --cached --quiet 2>/dev/null || \
+                   [[ -n "$(git -C "$project_dir" ls-files --others --exclude-standard 2>/dev/null)" ]]; then
+                    status_line="\e[0;31m[dirty]\e[0m"
+                else
+                    status_line="\e[0;32m[clean]\e[0m"
+                fi
+
+                echo "\e[0;33m${project}\e[0m  ${status_line}"
+
+                # Collect tree lines
+                tree_lines_arr=()
+                while IFS= read -r tree_line; do
+                    [[ -n "$tree_line" ]] && tree_lines_arr+=("$tree_line")
+                done < <(_grove_tui_render_branch_tree "$project_dir")
+
+                # Compute max prefix width for alignment
+                max_prefix_len=0
+                for tree_line in "${tree_lines_arr[@]}"; do
+                    tree_prefix="${tree_line#*$'\t'}"
+                    tree_prefix="${tree_prefix% *}"
+                    (( ${#tree_prefix} > max_prefix_len )) && max_prefix_len=${#tree_prefix}
+                done
+
+                # Render each branch line
+                for tree_line in "${tree_lines_arr[@]}"; do
+                    tree_prefix="${tree_line#*$'\t'}"
+                    b="${tree_prefix##* }"
+                    tree_prefix="${tree_prefix% *}"
+
+                    marker="○"
+                    if [[ "$b" == "$head_branch" ]]; then
+                        marker="◉"
+                    fi
+                    colored_prefix=$(_grove_tui_colorize_tree_prefix "$tree_prefix" "$marker")
+                    branch_color=$(_grove_tui_tree_depth_color "$tree_prefix")
+                    pad_count=$(( max_prefix_len - ${#tree_prefix} ))
+                    padding=""
+                    p=0
+                    while (( p < pad_count )); do
+                        padding+=" "
+                        (( p++ ))
+                    done
+
+                    echo "  ${colored_prefix}${padding} ${branch_color}${b}\e[0m"
+                done
+                echo ""
+            fi
+        done
         return 0
     elif [[ "$1" == "--list" ]]; then
         local -a all_ws=(${(s: :)$(_grove_list_all_workspaces)})
@@ -850,6 +939,7 @@ HELP
         fi
         echo "Usage: gv <workspace> <name>              # attach to tmux session (creates workspace if needed)"
         echo "       gv <workspace> <name> <command>    # run command in workspace (no tmux)"
+        echo "       gv --ls"
         echo "       gv --list"
         echo "       gv --rm [--force] <workspace> <name>"
         echo "       gv --kms [--force]                  # remove current workspace (from inside it)"
@@ -1213,7 +1303,7 @@ _grove_fzf_complete_widget() {
             local -a candidates=()
 
             # Add flags
-            candidates+=("--help" "--home" "--kms" "--list" "--rm")
+            candidates+=("--help" "--home" "--kms" "--list" "--ls" "--rm")
 
             # Add annotated workspaces (multi-repo get project list suffix)
             candidates+=("${(@f)$(_grove_annotated_workspaces)}")
@@ -1234,7 +1324,7 @@ _grove_fzf_complete_widget() {
         3)
             local arg1="${tokens[2]}"
             case "$arg1" in
-                --list|--home|--help|--kms)
+                --list|--ls|--home|--help|--kms)
                     return 0
                     ;;
                 --rm)
@@ -1418,7 +1508,7 @@ else
         }
 
         case "${words[2]}" in
-            --list|--home|--help|--kms)
+            --list|--ls|--home|--help|--kms)
                 return 0
                 ;;
             --rm)
@@ -1445,7 +1535,7 @@ else
             *)
                 case $CURRENT in
                     2)
-                        local -a flags=('--help:Show usage guide' '--home:cd to projects directory' '--kms:Remove current workspace' '--list:List all workspaces' '--rm:Remove a workspace')
+                        local -a flags=('--help:Show usage guide' '--home:cd to projects directory' '--kms:Remove current workspace' '--list:List all workspaces' '--ls:Show branch tree for current workspace' '--rm:Remove a workspace')
                         _describe -t flags 'flag' flags
                         _grove_workspaces_list
                         ;;
