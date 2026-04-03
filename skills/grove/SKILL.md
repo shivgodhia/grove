@@ -217,7 +217,7 @@ This will switch to the tmux session (creating the workspace if it doesn't exist
 
 ## Error Handling
 
-- If `gv` command is not found: inform user to source their workspace manager (`source ~/.zsh/grove/grove.zsh`)
+- If `gv` command is not found: inform user to add `source ~/.zsh/grove/grove.zsh` to their `.zshrc`, then restart their terminal or run `source ~/.zshrc`
 - If workspace doesn't exist: list available workspaces and ask
 - If instance doesn't exist (for cd/delete): list available instances
 - If instance already exists (for create): ask if they want to cd to it instead
