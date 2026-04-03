@@ -1015,14 +1015,31 @@ _grove_tui_preview() {
                         continue
                     fi
                     (( fetch_misses++ ))
-                    pr_results["$pr_key"]="__LOADING__"
+                    # Spawn parallel fetch inline (we will wait before rendering)
+                    tmpf=$(mktemp)
+                    pr_tmpfiles["$pr_key"]="$tmpf"
+                    pr_repo_for_key["$pr_key"]="$repo_url"
+                    pr_branch_for_key["$pr_key"]="$b"
+                    (( fetch_spawned++ ))
+                    _grove_tui_fetch_pr_payload "$b" "$repo_url" > "$tmpf" 2>/dev/null &
                 done
             fi
         done
-        # Queue background fill for current instance; lock prevents duplicates.
+        # Block until all in-flight PR fetches complete, then populate cache + results.
         if (( fetch_misses > 0 )); then
-            ((_grove_tui_prefetch_instance_prs "$ws_name" "$instance_name" >/dev/null 2>&1) &!)
-            queued_prefetch=1
+            wait
+            for pr_key tmpf in "${(@kv)pr_tmpfiles}"; do
+                cache_data=$(<"$tmpf")
+                rm -f "$tmpf"
+                _grove_tui_pr_cache_put "${pr_repo_for_key[$pr_key]}" "${pr_branch_for_key[$pr_key]}" "$cache_data" >/dev/null 2>&1
+                # Normalize to match what _grove_tui_pr_cache_get returns:
+                # __NO_PR__ → "" (empty), everything else passed through as-is.
+                if [[ "$cache_data" == "__NO_PR__" ]]; then
+                    pr_results["$pr_key"]=""
+                else
+                    pr_results["$pr_key"]="$cache_data"
+                fi
+            done
         fi
     fi
     _grove_tui_timing_enabled && _grove_tui_timing_log "preview_pr_fetch" "$pr_fetch_start_us" "hits=${fetch_hits},misses=${fetch_misses},spawned=${fetch_spawned},queued_prefetch=${queued_prefetch}"
