@@ -5,15 +5,15 @@ description: Manage workspaces (multi-repo worktrees) - create, delete, list, or
 
 # Grove Management Skill
 
-You are helping the user manage workspaces. This skill integrates with the user's `grove` command (workspace manager).
+You are helping the user manage workspaces. This skill integrates with the user's `gv` command (workspace manager).
 
 ## Workspace Manager Reference
 
-The user has a workspace manager at `~/.zsh/grove/grove.zsh`. **Before running any commands**, read that file to determine the actual configured values of:
+The user has a workspace manager at `~/.zsh/grove/grove.zsh` with local config at `~/.zsh/grove/grove.local.zsh`. **Before running any commands**, read the local config file to determine the actual configured values of:
 
-- `GROVE_PROJECTS_DIR` — where git repos live
-- `GROVE_WORKSPACES_DIR` — where workspaces are created
-- `GROVE_BRANCH_PREFIX` — prefix for new branch names
+- `GROVE_PROJECTS_DIR` — where git repos live (default: `~/groveyard`)
+- `GROVE_WORKSPACES_DIR` — where workspaces are created (default: `$GROVE_PROJECTS_DIR/workspaces`)
+- `GROVE_BRANCH_PREFIX` — prefix for new branch names (default: `$USER`)
 - `grove_workspaces` — multi-project workspace definitions
 
 Use those concrete paths (not the variable names) in all Bash commands.
@@ -21,18 +21,27 @@ Use those concrete paths (not the variable names) in all Bash commands.
 ### Available Commands
 
 ```bash
-grove <workspace> <name>                  # Create (if needed) and attach to workspace
-grove <workspace> <name> <command>        # Run command in workspace
-grove --list                              # List all workspaces
-grove --rm <workspace> <name>             # Remove workspace
-grove --rm --force <workspace> <name>     # Force remove (uncommitted changes)
+gv                                     # Open interactive TUI dashboard
+gv <workspace> <name>                  # Create (if needed) and attach to workspace
+gv <workspace> <name> <command>        # Run command in workspace (no tmux)
+gv --list                              # List all workspaces and instances
+gv --ls                                # Show branch tree for current workspace
+gv --rm <workspace> <name>             # Remove workspace
+gv --rm --force <workspace> <name>     # Force remove (uncommitted changes)
+gv --kms [--force]                     # Remove current workspace (from inside it)
+gv --home                              # cd to projects directory
+gv --update                            # Pull latest grove updates (must be on main)
+gv --help                              # Show usage guide
 ```
 
 ### Key Concepts
 
-- **Single-project workspace**: Any project directory is automatically a workspace (e.g. `grove my-api fix-auth`)
+- **Single-project workspace**: Any project directory is automatically a workspace (e.g. `gv my-api fix-auth`)
 - **Multi-project workspace**: Defined in config (e.g. `grove_workspaces[fullstack]="frontend backend"`)
 - All projects in a workspace get worktrees with the same branch name
+- **Agent config merging**: For multi-project workspaces, `.claude/skills/` and `.cursor/` from each project are copied into the workspace root (skill names are prefixed to avoid collisions)
+- **Post-create hooks**: Per-project setup commands that run when a worktree is first created
+- **Post-startup hooks**: Per-workspace commands that run every time a new tmux session is created
 
 ## Parsing User Intent
 
@@ -90,10 +99,10 @@ Ask if they want to proceed or modify the name.
 ### Step 5: Create the Workspace
 
 ```bash
-grove <workspace> <instance-name>
+gv <workspace> <instance-name>
 ```
 
-The `grove` command handles fetching, branch resolution, direnv, post-create hooks, and agent config merging automatically.
+The `gv` command handles fetching, branch resolution, direnv, post-create hooks, and agent config merging automatically.
 
 ### Step 6: Report Success
 
@@ -114,9 +123,10 @@ After creation, provide:
 **If user said "this workspace" or similar:**
 - Check if currently in a workspace by checking if path matches `$GROVE_WORKSPACES_DIR/<workspace>/<instance>/...`
 - Extract workspace and instance from the path
+- Can use `gv --kms` to remove the current workspace from inside it
 
 **If unclear:**
-- Run `grove --list` to show available workspaces
+- Run `gv --list` to show available workspaces
 - Ask user which one to delete
 
 ### Step 2: Check for Uncommitted Changes
@@ -156,7 +166,9 @@ cd $GROVE_PROJECTS_DIR
 Only after successfully changing directory:
 
 ```bash
-grove --rm <workspace> <instance-name>
+gv --rm <workspace> <instance-name>
+# Or with --force if there are uncommitted changes:
+gv --rm --force <workspace> <instance-name>
 ```
 
 ### Step 6: Report Result
@@ -171,7 +183,7 @@ grove --rm <workspace> <instance-name>
 Simply run:
 
 ```bash
-grove --list
+gv --list
 ```
 
 Display the results to the user in a readable format.
@@ -186,7 +198,7 @@ If user specified an instance (e.g., `/grove cd fix-auth-login`):
 - Use that name
 
 If not specified:
-- Run `grove --list` and ask which one
+- Run `gv --list` and ask which one
 
 ### Step 2: Determine Workspace
 
@@ -196,7 +208,7 @@ If not specified:
 ### Step 3: Switch to Workspace
 
 ```bash
-grove <workspace> <instance-name>
+gv <workspace> <instance-name>
 ```
 
 This will switch to the tmux session (creating the workspace if it doesn't exist).
@@ -205,7 +217,7 @@ This will switch to the tmux session (creating the workspace if it doesn't exist
 
 ## Error Handling
 
-- If `grove` command is not found: inform user to source their workspace manager
+- If `gv` command is not found: inform user to add `source ~/.zsh/grove/grove.zsh` to their `.zshrc`, then restart their terminal or run `source ~/.zshrc`
 - If workspace doesn't exist: list available workspaces and ask
 - If instance doesn't exist (for cd/delete): list available instances
 - If instance already exists (for create): ask if they want to cd to it instead
@@ -221,4 +233,3 @@ When checking if a branch has been merged, `git merge-base --is-ancestor` will N
 ### Working Directory Persistence
 
 The Bash tool's working directory persists across calls. Always cd out of a workspace in a **separate** Bash call before deleting it.
-
