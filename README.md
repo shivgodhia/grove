@@ -61,7 +61,7 @@ rest of the setup until all three are confirmed present.
 Then walk through configuration:
 
 1. Ask where my "projects directory" is — explain this is a single parent folder where all my git clones
-   live for grove, and that workspaces get created in a `workspaces/` subdirectory inside it. This MUST be
+   live for grove, and that workspaces get created in a `workspaces/` subdirectory inside it.
    Suggest ~/groveyard as a default.
 2. Ask what branch prefix I want (default: $USER). Explain this is used for naming new branches as
    <prefix>/branch-name.
@@ -97,6 +97,24 @@ Then walk through configuration:
    to resize them) and `set -g history-limit 50000` increases the scrollback buffer so you don't
    lose output from long-running commands. If yes, find their tmux config and add these settings
    if they aren't already present, then reload with `tmux source-file <path-to-config>`.
+
+Once installation and config are complete, walk the user through a hands-on test drive:
+
+9.  Tell the user to open a new terminal tab (so the freshly sourced .zshrc takes effect).
+10. Generate a `gv` command for them based on the workspaces they just configured. For example,
+    if they set up a workspace called "backend", suggest: `gv backend test-drive`. Copy the
+    command to the clipboard for them if possible. Explain what will happen (worktree created,
+    tmux session opened, hooks run).
+11. Wait for the user to confirm they've created the workspace. Once they say it's done, tell
+    them: "Great — now open another new terminal tab and just type `gv`." Explain that this
+    opens the interactive TUI dashboard where they can see all their workspace instances, search
+    and filter them, and open or delete them with keyboard shortcuts (Enter to open, Ctrl-N to
+    create new, Ctrl-X or Del to remove).
+12. Once they've tried the TUI, tell them they can go back to the original tab and clean up.
+    Explain the two ways to remove a workspace:
+    - From inside the workspace: `gv --kms` (or `gv --kms --force` if there are uncommitted changes)
+    - From the TUI: highlight the workspace and press Ctrl-X or Del
+    Suggest they try `gv --kms` from the tab where the workspace is running.
 ```
 
 Or do it manually:
@@ -165,19 +183,44 @@ grove_post_startup_commands[fullstack]="claude --dangerously-skip-permissions"
 ## Usage
 
 ```sh
+gv                                     # open interactive TUI dashboard
 gv <workspace> <name>                  # create/attach to workspace
 gv <workspace> <name> <command>        # run command in workspace (no tmux)
 gv --list                              # list all workspaces and instances
+gv --ls                                # show branch tree for current workspace
 gv --rm <workspace> <name>             # remove workspace instance
 gv --rm --force <workspace> <name>     # force remove (uncommitted changes)
 gv --kms [--force]                     # remove current workspace (from inside it)
 gv --home                              # cd to projects directory
+gv --update                            # pull latest grove updates (must be on main)
 gv --help                              # show usage guide
 ```
+
+### Interactive TUI
+
+Running `gv` with no arguments opens an fzf-powered dashboard showing all your workspace instances with a live preview pane.
+
+**Keybindings:**
+
+| Key | Action |
+|-----|--------|
+| **Enter** | Open/attach to selected workspace |
+| **Ctrl-N** | Create a new workspace instance |
+| **Ctrl-X** or **Del** | Delete selected workspace (with confirmation) |
+| Type to search | Filter by workspace, project, or instance name |
+
+The preview pane (right side) shows the git branch tree for the selected workspace, including per-project branch info and PR status (if `gh` is installed).
+
+### Branch tree (`gv --ls`)
+
+From inside a workspace, run `gv --ls` to see the branch tree — the same view shown in the TUI preview pane. Shows per-project branches, current HEAD, and dirty/clean status.
 
 ### Examples
 
 ```sh
+# Open the TUI dashboard
+gv
+
 # Single-project workspace (implicit)
 gv backend fix-auth
 
@@ -190,11 +233,17 @@ gv fullstack someone/fix-bug
 # Run a command in the workspace
 gv fullstack fix-auth git status
 
+# See branch tree for current workspace
+gv --ls
+
 # List everything
 gv --list
 
 # Clean up when done
 gv --rm fullstack fix-auth
+
+# Or clean up from inside the workspace
+gv --kms
 ```
 
 ## Directory structure
