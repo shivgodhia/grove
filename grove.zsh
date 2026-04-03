@@ -898,6 +898,11 @@ HELP
                 # Deinit submodules first — git refuses to remove worktrees that contain them
                 if [[ -f "$project_dir/.gitmodules" ]]; then
                     git -C "$project_dir" submodule deinit --all -f 2>/dev/null
+                    # Also remove the modules dir from the worktree's gitdir,
+                    # otherwise git still considers submodules present
+                    local wt_gitdir
+                    wt_gitdir=$(git -C "$project_dir" rev-parse --git-dir 2>/dev/null)
+                    [[ -d "$wt_gitdir/modules" ]] && rm -rf "$wt_gitdir/modules"
                 fi
                 git -C "$GROVE_PROJECTS_DIR/$project" worktree remove $force_flag "$project_dir" || rc=1
                 if [[ $rc -eq 0 ]]; then
