@@ -895,6 +895,10 @@ HELP
                 head_branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
 
                 echo "Removing worktree: $project ($head_branch)"
+                # Deinit submodules first — git refuses to remove worktrees that contain them
+                if [[ -f "$project_dir/.gitmodules" ]]; then
+                    git -C "$project_dir" submodule deinit --all -f 2>/dev/null
+                fi
                 git -C "$GROVE_PROJECTS_DIR/$project" worktree remove $force_flag "$project_dir" || rc=1
                 if [[ $rc -eq 0 ]]; then
                     local b
