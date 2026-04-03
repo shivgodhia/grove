@@ -76,11 +76,17 @@ Then walk through configuration:
    worktrees in both repos. Workspace names must be distinct from project directory names (project
    names are auto-claimed as implicit single-project workspaces). Iteratively ask for workspace
    definitions until done.
-5. Ask if I want an AI agent (like Claude Code) to launch automatically in every new workspace session.
-   Explain this is a post-startup hook that runs every time a tmux session is created, not just on first
-   creation. If yes, ask which agent command to use (default: `claude`) and set it as
-   GROVE_DEFAULT_POST_STARTUP_COMMAND. Then ask if any specific workspaces need a different startup
-   command (e.g. a tmux split pane layout) — if so, configure those as per-workspace overrides
+5. Ask which AI coding agent they use. Present these options:
+   - **Claude Code** — launches `claude` in the tmux session (runs inside the terminal alongside the workspace)
+   - **Codex** — launches `codex` in the tmux session
+   - **OpenCode** — launches `opencode` in the tmux session
+   - **Cursor** — launches `cursor .` to open the workspace directory in Cursor IDE
+   - **None / other** — skip, or let them type a custom command
+   Ask which one they use. Based on their choice, set GROVE_DEFAULT_POST_STARTUP_COMMAND to the
+   appropriate command (`claude`, `codex`, `cursor .`, or their custom command).
+   Explain that this is a post-startup hook that runs every time a tmux session is created.
+   Then ask if any specific workspaces need a different startup command (e.g. a different agent,
+   or a tmux split pane layout) — if so, configure those as per-workspace overrides
    with grove_post_startup_commands[workspace].
 6. Copy grove.local.example.zsh to grove.local.zsh, then edit it with all the
    collected configuration.
@@ -176,8 +182,8 @@ grove_post_create_commands[frontend]="pnpm install"
 Per-workspace commands that run every time a new tmux session is created:
 
 ```sh
-GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions"
-grove_post_startup_commands[fullstack]="claude --dangerously-skip-permissions"
+GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
+grove_post_startup_commands[fullstack]="cursor ."
 ```
 
 ## Usage

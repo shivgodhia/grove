@@ -30,7 +30,7 @@ grove_post_create_commands[frontend]="pnpm install"
 # Post-startup hooks — commands to run every time a new tmux session is created
 # for a workspace (after post-create hooks). Use for launching agents, tmux panes, etc.
 # Default applies to all workspaces; per-workspace entries override it.
-GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions"
-grove_post_startup_commands[fullstack]="claude --dangerously-skip-permissions"
+GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
+grove_post_startup_commands[fullstack]="cursor ."
 
 # Any other env vars or shell config you need
