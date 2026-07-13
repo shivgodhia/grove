@@ -248,7 +248,8 @@ img, canvas { max-width: 100%; display: block; }
 
 .hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 1.25rem; }
 .hero h1 { font-size: var(--step-4); font-weight: 600; letter-spacing: -0.03em; }
-.hero h1 .leaf-word { color: var(--accent); font-style: italic; font-weight: 500; }
+.leaf-word { color: var(--accent); font-style: italic; }
+.hero h1 .leaf-word { font-weight: 500; }
 .hero .tagline { font-size: var(--step-1); color: var(--ink-soft); max-width: 34ch; line-height: 1.5; font-weight: 380; }
 .hero .tagline b { color: var(--ink); font-weight: 600; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.4rem; }
