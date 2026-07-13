@@ -440,6 +440,7 @@ details.full-prompt > summary:hover { color: var(--accent); }
 .cmd-row .c { font-family: "JetBrains Mono", monospace; font-size: 0.85rem; color: var(--sap); white-space: nowrap; overflow-x: auto; }
 .cmd-row .c .flag { color: var(--term-branch); }
 .cmd-row .d { font-size: 0.87rem; color: var(--term-ink-dim); line-height: 1.5; }
+.cmd-row .d code { font-family: "JetBrains Mono", monospace; font-size: 0.92em; color: var(--sap); background: rgba(199, 217, 140, 0.1); padding: 0.05em 0.36em; border-radius: 4px; white-space: nowrap; }
 .cmd-group-label { font-family: "JetBrains Mono", monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--term-ink-dim); opacity: 0.7; padding: 1rem 0.95rem 0.35rem; }
 @media (max-width: 620px) { .cmd-row { grid-template-columns: 1fr; gap: 0.25rem; } }
 
