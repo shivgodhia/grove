@@ -58,8 +58,8 @@
       <div class="wrap">
         <div class="hero-copy">
           <p class="eyebrow">Zsh · git worktrees · tmux</p>
-          <h1>Plant a <span class="leaf-word">grove</span> of worktrees<br/>from one command.</h1>
-          <p class="tagline"><b>grove</b> cuts matching worktrees across the repos a task spans — same branch, one tmux session, and — if you want — launches an agent with access to all of them at once. Isolated checkouts, shared roots.</p>
+          <h1>Plant a <span class="leaf-word">grove</span> of worktrees<br/>in one command.</h1>
+          <p class="tagline"><b>grove</b> creates worktrees across the repos for your ticket, attaches to a tmux session, and launches an agent with access to all of them. Isolated checkouts, shared roots.</p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#install">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -160,36 +160,22 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="how-grid">
           <div class="section-head" style="margin-bottom:0">
             <p class="eyebrow">How it grows</p>
-            <h2>One branch name.<br/>Every repo. Same instant.</h2>
-            <p class="lede">Define a workspace once — a group of repos that belong together. From then on, a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call fans that branch out across all of them.</p>
+            <h2>One branch name.<br/>Every repo. One command.</h2>
+            <p class="lede">Set up the group once. From then on, any branch is a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call — and everything else is already done.</p>
           </div>
           <div class="steps">
             <div class="step">
               <div class="num" aria-hidden="true"></div>
               <div>
-                <h3>Group your repos</h3>
-                <p><code>grove_workspaces[fullstack]="frontend backend"</code> — or skip it; any single repo is a workspace automatically.</p>
+                <h3>Set up once</h3>
+                <p>Name a group of repos: <code>fullstack = frontend + backend</code>. That's the whole config — and a single repo needs none.</p>
               </div>
             </div>
             <div class="step">
               <div class="num" aria-hidden="true"></div>
               <div>
-                <h3>Call it once</h3>
-                <p><code>gv fullstack fix-auth</code> fetches, resolves the branch (tracking a remote if it exists, creating it where it doesn't), and cuts a worktree in each repo.</p>
-              </div>
-            </div>
-            <div class="step">
-              <div class="num" aria-hidden="true"></div>
-              <div>
-                <h3>Everything lands together</h3>
-                <p>All worktrees live under one workspace directory, with each repo's <code>.claude/skills</code> and <code>.cursor</code> merged in — so agents see the whole workspace.</p>
-              </div>
-            </div>
-            <div class="step">
-              <div class="num" aria-hidden="true"></div>
-              <div>
-                <h3>Open the session</h3>
-                <p>grove opens a tmux session and runs your hooks — install deps, launch <code>claude</code>, lay out panes. Reopen later and your agent resumes where it left off.</p>
+                <h3>Then, one command</h3>
+                <p><code>gv fullstack fix-auth</code> — a worktree in every repo on the same branch, deps installed, each repo's <code>.claude/skills</code> and <code>.cursor</code> merged so one agent sees them all, in a fresh tmux session with your agent already running. Any repo fails, they all roll back.</p>
               </div>
             </div>
           </div>
@@ -360,5 +346,31 @@ exactly — walking me through setup and configuration one question at a time.</
   </footer>
 
   <script src="grove.js"></script>
+  <script>
+    // Dev-only live reload. Runs ONLY on localhost — never on the deployed site.
+    // Polls the page's own assets; when one changes on disk, reloads the tab.
+    (function () {
+      var host = location.hostname;
+      var isLocal = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "";
+      if (!isLocal) return;
+      var assets = ["", "styles.css", "grove.js", "index.html", "install-prompt.txt"];
+      var stamps = {};
+      function sig(url) {
+        return fetch(url + (url.indexOf("?") < 0 ? "?" : "&") + "_r=" + Date.now(), { method: "HEAD", cache: "no-store" })
+          .then(function (r) { return r.headers.get("last-modified") + "|" + r.headers.get("content-length"); })
+          .catch(function () { return null; });
+      }
+      Promise.all(assets.map(sig)).then(function (init) { assets.forEach(function (a, i) { stamps[a] = init[i]; }); });
+      setInterval(function () {
+        assets.forEach(function (a) {
+          sig(a).then(function (s) {
+            if (s && stamps[a] && s !== stamps[a]) { location.reload(); }
+            if (s) stamps[a] = s;
+          });
+        });
+      }, 1000);
+      console.info("[grove] dev live-reload active (localhost only)");
+    })();
+  </script>
 </body>
 </html>
