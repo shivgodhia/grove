@@ -1,6 +1,6 @@
 # grove - Multi-Repo Worktree Manager for Zsh
 
-A Zsh function that manages multi-repo [git worktrees](https://git-scm.com/docs/git-worktree) with tmux integration. Group multiple projects into a workspace so they all get worktrees with the same branch name, inside one tmux session.
+**[grove.shivgodhia.com](https://grove.shivgodhia.com)** · A Zsh function that manages multi-repo [git worktrees](https://git-scm.com/docs/git-worktree) with tmux integration. Group multiple projects into a workspace so they all get worktrees with the same branch name, inside one tmux session.
 
 ## Why Grove?
 
