@@ -192,6 +192,7 @@ grove_post_startup_commands[fullstack]="cursor ."
 gv                                     # open interactive TUI dashboard
 gv <workspace> <name>                  # create/attach to workspace
 gv <workspace> <name> <command>        # run command in workspace (no tmux)
+gv --no-tmux <workspace> <name>        # create workspace, print its dir, no tmux
 gv --list                              # list all workspaces and instances
 gv --ls                                # show branch tree for current workspace
 gv --rm <workspace> <name>             # remove workspace instance
@@ -238,6 +239,9 @@ gv fullstack someone/fix-bug
 
 # Run a command in the workspace
 gv fullstack fix-auth git status
+
+# Create without tmux and cd in (for scripts / agents)
+cd "$(gv --no-tmux backend fix-auth)"
 
 # See branch tree for current workspace
 gv --ls

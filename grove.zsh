@@ -474,6 +474,30 @@ gv() {
         _grove_auto_update
     fi
 
+    # Create-only mode: create the workspace/worktrees but don't open (or attach)
+    # a tmux session. Prints the workspace working directory to stdout and returns.
+    # Intended for non-interactive/agent use where you want to `cd "$(gv --no-tmux
+    # <workspace> <name>)"` yourself. Accepted in any argument position.
+    local no_tmux=0
+    local -a _gv_args=()
+    local _gv_a
+    for _gv_a in "$@"; do
+        if [[ "$_gv_a" == "--no-tmux" ]]; then
+            no_tmux=1
+        else
+            _gv_args+=("$_gv_a")
+        fi
+    done
+    if (( no_tmux )); then
+        set -- "${_gv_args[@]}"
+        # Create-only mode must emit ONLY the workspace path on stdout so callers
+        # can `cd "$(gv --no-tmux ...)"`. Save the real stdout on fd 3 and redirect
+        # fd 1 → stderr for the rest of the function, so all progress output (grove's
+        # own echoes plus git's stdout) goes to stderr. The final path is written to
+        # fd 3 explicitly.
+        exec 3>&1 1>&2
+    fi
+
     # Handle special flags
     if [[ "$1" == "--help" ]]; then
         cat <<'HELP'
@@ -533,6 +557,18 @@ RUNNING A ONE-OFF COMMAND
   gv <workspace> <name> <command>
 
   Runs a command in the workspace directory without tmux.
+
+CREATE WITHOUT TMUX (for scripts / agents)
+  gv --no-tmux <workspace> <name>
+
+  Creates the workspace and worktrees (running post-create hooks) but does NOT
+  open or attach a tmux session. Prints the workspace working directory to stdout
+  (diagnostics go to stderr), so non-interactive callers can:
+
+    cd "$(gv --no-tmux my-app my-feature)"
+
+  If the workspace already exists, prints its directory and returns without
+  changing anything. The --no-tmux flag may appear in any argument position.
 
 OTHER COMMANDS
   gv --ls       Show branch tree for the current workspace (like the TUI preview)
@@ -948,6 +984,7 @@ HELP
         fi
         echo "Usage: gv <workspace> <name>              # attach to tmux session (creates workspace if needed)"
         echo "       gv <workspace> <name> <command>    # run command in workspace (no tmux)"
+        echo "       gv --no-tmux <workspace> <name>    # create workspace, print its dir, no tmux"
         echo "       gv --ls"
         echo "       gv --list"
         echo "       gv --rm [--force] <workspace> <name>"
@@ -1046,6 +1083,18 @@ HELP
 
                     # Only redirect within the same workspace
                     if [[ "$existing_workspace" == "$workspace" ]]; then
+                        local existing_root="$workspaces_dir/$existing_workspace/$existing_instance"
+
+                        # Create-only: report the existing workspace dir and return,
+                        # no tmux. (Single-project workspace → worktree is one level in.)
+                        # Path goes to fd 3 (real stdout); diagnostics to fd 1 (→stderr).
+                        if (( no_tmux )); then
+                            echo "Branch $name already exists in workspace: $existing_workspace/$existing_instance"
+                            echo "$existing_root/${project_list[1]}" >&3
+                            exec 3>&-
+                            return 0
+                        fi
+
                         local existing_session=$(_grove_tmux_session_name "$existing_workspace" "$existing_instance")
 
                         echo "Branch $name already exists in workspace: $existing_workspace/$existing_instance"
@@ -1059,7 +1108,6 @@ HELP
                             fi
                         else
                             # Workspace dir exists but no tmux session — create one
-                            local existing_root="$workspaces_dir/$existing_workspace/$existing_instance"
                             local existing_work_dir="$existing_root/${project_list[1]}"
                             tmux new-session -d -s "$existing_session" -c "$existing_work_dir"
                             if [[ -n "$TMUX" ]]; then
@@ -1151,12 +1199,39 @@ HELP
 
     # Command passthrough
     if [[ ${#command[@]} -gt 0 ]]; then
+        # If --no-tmux was also passed, restore real stdout (fd 3) for the command
+        # so its output isn't diverted to stderr; --no-tmux is a no-op here since the
+        # command form already skips tmux.
+        if (( no_tmux )); then
+            exec 1>&3 3>&-
+        fi
         local old_pwd="$PWD"
         cd "$work_dir"
         eval "${command[@]}"
         local exit_code=$?
         cd "$old_pwd"
         return $exit_code
+    fi
+
+    # Create-only mode: run post-create hooks for any freshly created worktrees
+    # (the same hooks tmux mode would run), then print the working directory and
+    # return without opening a tmux session. Diagnostics go to stderr so stdout is
+    # just the path — safe for `cd "$(gv --no-tmux <workspace> <name>)"`.
+    if (( no_tmux )); then
+        if (( ${#newly_created_projects} > 0 )); then
+            local project_wt
+            for project in "${newly_created_projects[@]}"; do
+                if [[ -n "${grove_post_create_commands[$project]}" ]]; then
+                    project_wt="$workspace_root/$project"
+                    echo "Running post-create hook for $project..."
+                    (cd "$project_wt" && eval "${grove_post_create_commands[$project]}")
+                fi
+            done
+        fi
+        # fd 1 is currently → stderr; write the path to the saved real stdout (fd 3).
+        echo "$work_dir" >&3
+        exec 3>&-
+        return 0
     fi
 
     # Tmux session
