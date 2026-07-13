@@ -1,0 +1,12 @@
+The fonts bundled in this directory are subject to the SIL Open Font License,
+Version 1.1, and are redistributed here under its terms.
+
+- Fraunces        — © The Fraunces Project Authors (github.com/undercasetype/Fraunces)
+- Inter           — © The Inter Project Authors (github.com/rsms/inter)
+- JetBrains Mono  — © 2020 The JetBrains Mono Project Authors (github.com/JetBrains/JetBrainsMono)
+
+Full license text: https://openfontlicense.org  (SIL OFL 1.1)
+
+These fonts are provided "as is", without warranty of any kind. They may be used,
+studied, modified, and redistributed freely under the OFL, but must not be sold by
+themselves and must be distributed entirely under this license.
