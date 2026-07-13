@@ -262,14 +262,13 @@ exactly — walking me through setup and configuration one question at a time.</
           <div class="versus-col by-hand">
             <div class="versus-head">
               <span class="versus-tag">native worktrees</span>
-              <span class="versus-count">one repo</span>
+              <span class="versus-count">one repo each</span>
             </div>
             <ol class="versus-steps plain">
-              <li>a worktree per agent — but all inside the same repo</li>
-              <li>your feature also touches the backend? that’s a separate clone</li>
-              <li>you match up branch names across repos yourself</li>
-              <li>and keep the two checkouts in sync as you go</li>
-              <li>the agent only ever sees the one repo it was launched in</li>
+              <li>a worktree per agent — but only within one repo</li>
+              <li>a feature that spans frontend and backend means two of them</li>
+              <li>two agents, each seeing only its own repo</li>
+              <li>and you’re the one relaying context between them</li>
             </ol>
           </div>
           <div class="versus-arrow" aria-hidden="true">
@@ -282,7 +281,7 @@ exactly — walking me through setup and configuration one question at a time.</
             </div>
             <div class="versus-one">
               <pre class="mono"><span class="term-prompt">❯</span> gv fullstack dark-mode</pre>
-              <p>One workspace, a worktree of every repo the feature touches, all on the same branch — and one agent that works across the whole set. Still isolated, still one command; it just doesn’t stop at the repo boundary.</p>
+              <p>One workspace, a worktree of every repo the feature touches, all on the same branch — and a single agent that sees the whole set, so nobody has to relay context between them. Still isolated, still one command.</p>
             </div>
           </div>
         </div>
