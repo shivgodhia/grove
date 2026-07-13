@@ -105,7 +105,7 @@
       rows[i].style.opacity = "";
       rows[i].classList.add("show");
       i++;
-      setTimeout(next, 260);
+      setTimeout(next, 165);
     })();
   })();
 

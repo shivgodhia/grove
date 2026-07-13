@@ -59,7 +59,7 @@
         <div class="hero-copy">
           <p class="eyebrow">Zsh · git worktrees · tmux</p>
           <h1>Plant a <span class="leaf-word">grove</span> of worktrees<br/>from one command.</h1>
-          <p class="tagline">Working across a frontend and a backend? <b>grove</b> creates matching worktrees in every repo, drops them in one tmux session, and — if you want — launches an AI agent in each. Isolated checkouts, shared roots.</p>
+          <p class="tagline"><b>grove</b> cuts matching worktrees across the repos a task spans — same branch, one tmux session, and — if you want — launches an agent with access to all of them at once. Isolated checkouts, shared roots.</p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#install">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -72,25 +72,31 @@
           </div>
           <div class="hero-meta">
             <span><i class="dot"></i>One command, every repo</span>
-            <span><i class="dot"></i>Rollback on failure</span>
-            <span><i class="dot"></i>MIT licensed</span>
+            <span><i class="dot"></i>Installs itself</span>
+            <span><i class="dot"></i>Lives in your shell</span>
+            <span><i class="dot"></i>MIT</span>
           </div>
         </div>
 
         <!-- Live-feeling terminal -->
-        <div class="terminal hero-term" id="hero-term" role="img" aria-label="Terminal: running gv fullstack fix-auth creates worktrees for frontend and backend on the same branch and opens a tmux session.">
+        <div class="terminal hero-term" id="hero-term" role="img" aria-label="Terminal: gv fullstack fix-auth creates worktrees for frontend and backend on the same branch, opens tmux, and launches the agent; a second workspace is planted alongside it, and gv --list shows both agents working in parallel.">
           <div class="term-bar">
             <div class="lights"><i></i><i></i><i></i></div>
-            <div class="title">grove/fullstack/fix-auth — tmux</div>
+            <div class="title">grove — two agents, in parallel</div>
           </div>
           <div class="term-body" id="term-body">
             <div class="row"><span class="term-prompt">~/groveyard</span> <span class="term-dim">❯</span> <span class="term-cmd">gv fullstack fix-auth</span></div>
-            <div class="row term-dim">  🌱 planting workspace <span class="term-leaf">fullstack/fix-auth</span></div>
+            <div class="row term-dim">  🌱 planting <span class="term-leaf">fullstack/fix-auth</span></div>
             <div class="row term-dim">  ├─ frontend   <span class="term-branch">shiv/fix-auth</span>  <span class="term-leaf">✓ worktree</span></div>
             <div class="row term-dim">  └─ backend    <span class="term-branch">shiv/fix-auth</span>  <span class="term-leaf">✓ worktree</span></div>
-            <div class="row term-dim">  ⬡ tmux session up · post-startup hooks running</div>
+            <div class="row term-dim">  ⬡ tmux up · <span class="term-leaf">claude running</span></div>
             <div class="row">&nbsp;</div>
-            <div class="row"><span class="term-prompt">fullstack/fix-auth</span> <span class="term-dim">❯</span> <span class="term-cmd">claude</span><span class="cursor-blink" aria-hidden="true"></span></div>
+            <div class="row"><span class="term-prompt">~/groveyard</span> <span class="term-dim">❯</span> <span class="term-cmd">gv payments rate-limits</span></div>
+            <div class="row term-dim">  🌱 planting <span class="term-leaf">payments/rate-limits</span> … <span class="term-leaf">✓ · claude running</span></div>
+            <div class="row">&nbsp;</div>
+            <div class="row"><span class="term-prompt">~/groveyard</span> <span class="term-dim">❯</span> <span class="term-cmd">gv --list</span></div>
+            <div class="row term-dim">  grove/fullstack/fix-auth      <span class="term-leaf">claude · working</span></div>
+            <div class="row term-dim">  grove/payments/rate-limits    <span class="term-leaf">claude · working</span><span class="cursor-blink" aria-hidden="true"></span></div>
           </div>
         </div>
       </div>
@@ -206,30 +212,72 @@ exactly — walking me through setup and configuration one question at a time.</
             <p>Group projects together and one command cuts worktrees across all of them — every repo on the same branch name, ready at once.</p>
           </article>
           <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-8M12 14 8 10M12 14l4-4"/><path d="M4 6a4 4 0 0 1 8 0 4 4 0 0 1 8 0"/></svg>
-            <h3>Smart branch resolution</h3>
-            <p>Tracks an existing remote branch where it finds one and creates a fresh branch where it doesn't — so teammates' branches just check out everywhere.</p>
-          </article>
-          <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg>
-            <h3>Agent config, merged</h3>
-            <p>Each repo's <code>.claude/skills</code> and <code>.cursor</code> are copied into the workspace root — names prefixed to avoid collisions — so your agent sees everything.</p>
+            <h3>One agent, every repo</h3>
+            <p>grove copies each repo's <code>.claude/skills</code> and <code>.cursor</code> into the workspace root, so a single agent at the root sees the skills and rules from every repo it's working across.</p>
           </article>
           <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12"/><path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2Z"/><path d="M7 8l3 2-3 2"/></svg>
-            <h3>tmux, per workspace</h3>
-            <p>One session per instance, auto-named <code>grove/&lt;ws&gt;/&lt;name&gt;</code> — which your terminal shows as the tab title, so a wall of tabs stays legible.</p>
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
+            <h3>Agents resume on reopen</h3>
+            <p>A worktree outlives its tmux session. Reopen a workspace and grove brings your agent back with <code>--continue</code> — it picks up the conversation right where you left it.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+            <h3>Lives in your shell</h3>
+            <p>No app, no binary, no daemon — grove is one Zsh function you <code>source</code>. It works over SSH and on any box, and each workspace is its own tmux session, auto-named so a wall of tabs stays legible.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6M11 8v6"/></svg>
             <h3>Interactive TUI</h3>
-            <p>Type <code>gv</code> with no args for an fzf dashboard of every workspace — with a live branch tree and PR status in the preview pane.</p>
+            <p>Type <code>gv</code> with no args for an fzf dashboard of every workspace — with a live branch tree and PR status (via <code>gh</code>) in the preview pane.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
             <h3>Rollback on failure</h3>
             <p>If any worktree in the set fails to create, grove tears the whole thing back down — no half-planted workspace left behind.</p>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== By hand vs grove ===================== -->
+    <section class="versus section-pad">
+      <div class="wrap">
+        <div class="section-head center">
+          <p class="eyebrow">The part you keep re-scripting</p>
+          <h2>Worktrees are easy. Worktrees across three repos aren't.</h2>
+          <p class="lede">Cutting one worktree is a one-liner. Cutting them across every repo a task touches — same branch, deps installed, agent config in place, a tmux session named — is the bit you rebuild by hand every time.</p>
+        </div>
+        <div class="versus-grid">
+          <div class="versus-col by-hand">
+            <div class="versus-head">
+              <span class="versus-tag">by hand</span>
+              <span class="versus-count">per repo, every time</span>
+            </div>
+            <ol class="versus-steps">
+              <li><code>git fetch</code> and figure out if the branch already exists on a remote</li>
+              <li>track it if it does, create it if it doesn't</li>
+              <li><code>git worktree add</code> in the right place</li>
+              <li>rebuild the workspace directory layout</li>
+              <li>reinstall dependencies</li>
+              <li>symlink or copy each repo's agent config</li>
+              <li>start and name a tmux session</li>
+              <li>…then remember to prune all of it later</li>
+            </ol>
+          </div>
+          <div class="versus-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+          <div class="versus-col with-grove">
+            <div class="versus-head">
+              <span class="versus-tag grove">with grove</span>
+              <span class="versus-count">once</span>
+            </div>
+            <div class="versus-one">
+              <pre class="mono"><span class="term-prompt">❯</span> gv fullstack fix-auth</pre>
+              <p>Fetch, branch resolution, a worktree in every repo, deps, merged agent config, tmux, your agent — all of it. Clean up with <code>gv --rm</code>, or <code>gv --kms</code> from inside.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -260,7 +308,7 @@ exactly — walking me through setup and configuration one question at a time.</
             <div class="cmd-row"><div class="c">gv <span class="flag">--rm [--force] &lt;ws&gt; &lt;name&gt;</span></div><div class="d">Remove an instance (<span class="flag">--force</span> if it's dirty)</div></div>
             <div class="cmd-row"><div class="c">gv <span class="flag">--kms [--force]</span></div><div class="d">Remove the current workspace, from inside it</div></div>
             <div class="cmd-row"><div class="c">gv <span class="flag">--home</span></div><div class="d">cd to your projects directory</div></div>
-            <div class="cmd-row"><div class="c">gv <span class="flag">--update</span></div><div class="d">Pull the latest grove (must be on main)</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--update</span></div><div class="d">Pull the latest grove</div></div>
             <div class="cmd-row"><div class="c">gv <span class="flag">--help</span></div><div class="d">Show the full usage guide</div></div>
           </div>
         </div>
@@ -273,7 +321,7 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="leaf-divider" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 6 5 10 5 14a7 7 0 0 0 14 0c0-4-2-8-7-12Zm0 4c2.5 2.5 4 5 4 8a4 4 0 0 1-8 0c0-3 1.5-5.5 4-8Z"/></svg>
         </div>
-        <h2>Stop stashing. Start branching in parallel.</h2>
+        <h2>One command. Every repo your task touches. Zero worktree bookkeeping.</h2>
         <p class="lede">grove is one Zsh file, MIT-licensed, and installs itself in a couple of minutes.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#install">
