@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2f20"/>
+      <stop offset="0.55" stop-color="#16281c"/>
+      <stop offset="1" stop-color="#122318"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.12" r="0.7">
+      <stop offset="0" stop-color="#c7d98c" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#c7d98c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- subtle drifting leaf-light motes -->
+  <g fill="#c7d98c">
+    <circle cx="980" cy="90" r="4" opacity="0.5"/>
+    <circle cx="1080" cy="160" r="2.5" opacity="0.4"/>
+    <circle cx="900" cy="200" r="3" opacity="0.3"/>
+    <circle cx="1120" cy="70" r="2" opacity="0.5"/>
+    <circle cx="1010" cy="250" r="2.5" opacity="0.25"/>
+    <circle cx="860" cy="120" r="2" opacity="0.35"/>
+  </g>
+
+  <!-- grove mark -->
+  <g transform="translate(96, 92) scale(2.1)">
+    <path d="M16 29V15" stroke="#8a6a52" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M16 20c-1-4-4-5.5-7-6 2.5 3 3 5 7 7Z" fill="#5b8c51"/>
+    <path d="M16 17c1-4.5 4-6 7.5-6.5-2.6 3.3-3.2 5.4-7.5 7.6Z" fill="#6fa860"/>
+    <circle cx="16" cy="9.5" r="6" fill="#5b8c51"/>
+    <circle cx="10.5" cy="13" r="4" fill="#6fa860"/>
+    <circle cx="21.5" cy="13" r="4" fill="#6fa860"/>
+    <circle cx="16" cy="8" r="3" fill="#c7d98c"/>
+  </g>
+  <text x="170" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="600" fill="#ecefe1" letter-spacing="-1">grove</text>
+
+  <!-- headline -->
+  <text x="96" y="330" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="600" fill="#ecefe1" letter-spacing="-2">Give every agent</text>
+  <text x="96" y="422" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="600" letter-spacing="-2">
+    <tspan fill="#ecefe1">its own </tspan><tspan fill="#c7d98c" font-style="italic">grove.</tspan>
+  </text>
+
+  <!-- subline -->
+  <text x="98" y="500" font-family="Georgia, serif" font-size="30" fill="#9db08f" letter-spacing="0.5">Multi-repo worktrees for AI agents</text>
+
+  <!-- footer chips -->
+  <g font-family="'Courier New', monospace" font-size="22" fill="#9db08f">
+    <circle cx="106" cy="562" r="4" fill="#c7d98c"/>
+    <text x="120" y="569">one command, every repo</text>
+    <circle cx="470" cy="562" r="4" fill="#c7d98c"/>
+    <text x="484" y="569">lives in your shell</text>
+    <circle cx="770" cy="562" r="4" fill="#c7d98c"/>
+    <text x="784" y="569">MIT</text>
+  </g>
+
+  <!-- url -->
+  <text x="1104" y="569" text-anchor="end" font-family="'Courier New', monospace" font-size="22" fill="#6fa860">grove.shivgodhia.com</text>
+</svg>
