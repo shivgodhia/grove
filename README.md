@@ -37,7 +37,7 @@ For each project in the workspace:
 
 Copy this prompt into Claude Code (or your AI tool of choice):
 
-```
+````
 Clone [grove](https://github.com/shivgodhia/grove) to ~/.zsh/grove and add `source ~/.zsh/grove/grove.zsh`
 to my .zshrc. Then walk me through setting up ~/.zsh/grove/grove.local.zsh step by step,
 asking me one question at a time.
@@ -154,7 +154,7 @@ Once installation and config are complete, walk the user through a hands-on test
     - From inside the workspace: `gv --kms` (or `gv --kms --force` if there are uncommitted changes)
     - From the TUI: highlight the workspace and press Ctrl-X or Del
     Suggest they try `gv --kms` from the tab where the workspace is running.
-```
+````
 
 Or do it manually:
 
