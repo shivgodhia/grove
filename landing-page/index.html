@@ -186,7 +186,7 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="how-grid">
           <div class="section-head" style="margin-bottom:0">
             <p class="eyebrow">How it grows</p>
-            <h2>One branch name.<br/>Every repo.<br/>One command.</h2>
+            <h2>One workspace.<br/>Every repo.<br/>One command.</h2>
             <p class="lede">Set up the group once. From then on, any branch is a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call — and everything else is already done.</p>
           </div>
           <div class="steps">
@@ -194,7 +194,7 @@ exactly — walking me through setup and configuration one question at a time.</
               <div class="num" aria-hidden="true"></div>
               <div>
                 <h3>Set up once</h3>
-                <p>Name a group of repos: <code>fullstack = frontend + backend</code>. That's the whole config — and a single repo needs none.</p>
+                <p>Name a group of repos: <code>fullstack = frontend + backend</code>.</p>
               </div>
             </div>
             <div class="step">
@@ -213,40 +213,30 @@ exactly — walking me through setup and configuration one question at a time.</
     <section class="section-pad" id="features">
       <div class="wrap">
         <div class="section-head center">
-          <p class="eyebrow">The canopy</p>
-          <h2>Small tool. Deep roots.</h2>
-          <p class="lede">Everything you need to run several branches — and several agents — in parallel without tripping over yourself.</p>
+          <p class="eyebrow">What it does</p>
+          <h2>Small tool. Whole workflow.</h2>
+          <p class="lede">Run several branches — and several agents — in parallel without tripping over yourself.</p>
         </div>
         <div class="features-grid">
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 4-6 9"/></svg>
-            <h3>Multi-repo workspaces</h3>
-            <p>Group projects together and one command cuts worktrees across all of them — every repo on the same branch name, ready at once.</p>
+            <h3>Every repo, one branch, one command</h3>
+            <p>Group the repos that ship together. One <code>gv</code> gives each its own worktree on the same branch, in its own tmux session, ready to work. If a repo fails, grove rolls the whole set back — no half-planted workspaces.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg>
-            <h3>One agent, every repo</h3>
-            <p>grove copies each repo's <code>.claude/skills</code> and <code>.cursor</code> into the workspace root, so a single agent at the root sees the skills and rules from every repo it's working across.</p>
+            <h3>One agent that sees everything</h3>
+            <p>A single agent works across every repo in the workspace with the full picture — instead of one agent per checkout, each blind to the others.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
-            <h3>Agents resume on reopen</h3>
-            <p>A worktree outlives its tmux session. Reopen a workspace and grove brings your agent back with <code>--continue</code> — it picks up the conversation right where you left it.</p>
+            <h3>Walk away. The work waits.</h3>
+            <p>Your worktrees outlive their sessions. Reopen a workspace and your agent comes back right where you left off.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
-            <h3>Lives in your shell</h3>
-            <p>No app, no binary, no daemon — grove is one Zsh function you <code>source</code>. It works over SSH and on any box, and each workspace is its own tmux session, auto-named so a wall of tabs stays legible.</p>
-          </article>
-          <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6M11 8v6"/></svg>
-            <h3>Interactive TUI</h3>
-            <p>Type <code>gv</code> with no args for an fzf dashboard of every workspace — with a live branch tree and PR status (via <code>gh</code>) in the preview pane.</p>
-          </article>
-          <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
-            <h3>Rollback on failure</h3>
-            <p>If any worktree in the set fails to create, grove tears the whole thing back down — no half-planted workspace left behind.</p>
+            <h3>It's just a Zsh function</h3>
+            <p>No app, no binary, no daemon — you source one file. grove drives the tmux and fzf you already have. Type <code>gv</code> for a live dashboard of every workspace.</p>
           </article>
         </div>
       </div>
