@@ -65,18 +65,27 @@ Then walk through configuration:
    Suggest ~/groveyard as a default.
 2. Ask what branch prefix I want (default: $USER). Explain this is used for naming new branches as
    <prefix>/branch-name.
-3. Iteratively ask me for git repos to clone into the projects directory. For each one:
+3. Ask whether I have a GitHub organization I work out of. If I do, and the `gh` CLI is
+   available and authenticated (`gh auth status`), list the org's active repos so I can pick
+   which to clone rather than typing each name by hand — for example:
+   `gh repo list <org> --limit 100 --json name,description,pushedAt,isArchived --jq 'sort_by(.pushedAt) | reverse | .[] | select(.isArchived==false) | "\(.name)\t\(.pushedAt[0:10])\t\(.description // "")"'`
+   Present the most recently active ones first (they're the likeliest to be worked on), let me
+   multi-select, and skip archived repos. If I don't have an org or `gh` isn't set up, just fall
+   back to asking for repos by name/URL.
+4. For each repo I chose (from the org or named directly):
    - Clone it into the projects directory.
    - Read the project's README to figure out what setup commands are needed (e.g. npm install,
-     pnpm install, yarn && npx prisma generate) and suggest a post-create hook for it.
+     pnpm install, yarn && npx prisma generate) and suggest a post-create hook for it. For slow
+     installs, suggest backgrounding the hook so the worktree is usable immediately (see the
+     Post-create hooks section below).
    - After each clone, ask if I want to add another repo or if I'm done.
-4. Ask if I want to define any multi-project workspaces. Explain the concept: a workspace groups
+5. Ask if I want to define any multi-project workspaces. Explain the concept: a workspace groups
    multiple repos so they all get worktrees with the same branch name in one command. For example,
    grove_workspaces[fullstack]="frontend backend" means `gv fullstack fix-auth` creates
    worktrees in both repos. Workspace names must be distinct from project directory names (project
    names are auto-claimed as implicit single-project workspaces). Iteratively ask for workspace
    definitions until done.
-5. Ask which AI coding agent they use. Present these options:
+6. Ask which AI coding agent they use. Present these options:
    - **Claude Code** — launches `claude` in the tmux session (runs inside the terminal alongside the workspace)
    - **Codex** — launches `codex` in the tmux session
    - **OpenCode** — launches `opencode` in the tmux session
@@ -98,9 +107,9 @@ Then walk through configuration:
    Then ask if any specific workspaces need a different startup command (e.g. a different agent,
    or a tmux split pane layout) — if so, configure those as per-workspace overrides
    with grove_post_startup_commands[workspace].
-6. Copy grove.local.example.zsh to grove.local.zsh, then edit it with all the
+7. Copy grove.local.example.zsh to grove.local.zsh, then edit it with all the
    collected configuration.
-7. Ask if I want terminal tab titles to automatically show the workspace name. Explain that this
+8. Ask if I want terminal tab titles to automatically show the workspace name. Explain that this
    makes tmux set the terminal tab title to the session name (e.g. "grove/fullstack/fix-auth"), so
    each tab is easy to identify. If yes, find my tmux config (~/.config/tmux/tmux.conf or
    ~/.tmux.conf) and add `set-option -g set-titles on` and `set-option -g set-titles-string '#S'`
@@ -108,7 +117,7 @@ Then walk through configuration:
    Kitty, WezTerm, Terminal.app) and walk them through enabling the setting that lets applications
    change the tab/window title — for example, in iTerm2 this is under Profiles → General → Title
    where "Applications in terminal may change the title" must be checked.
-8. Ask if they want recommended tmux settings for a better workspace experience. Explain that
+9. Ask if they want recommended tmux settings for a better workspace experience. Explain that
    `set -g mouse on` enables mouse support (scroll through output, click to switch panes, drag
    to resize them) and `set -g history-limit 50000` increases the scrollback buffer so you don't
    lose output from long-running commands. If yes, find their tmux config and add these settings
@@ -116,17 +125,17 @@ Then walk through configuration:
 
 Once installation and config are complete, walk the user through a hands-on test drive:
 
-9.  Tell the user to open a new terminal tab (so the freshly sourced .zshrc takes effect).
-10. Generate a `gv` command for them based on the workspaces they just configured. For example,
+10. Tell the user to open a new terminal tab (so the freshly sourced .zshrc takes effect).
+11. Generate a `gv` command for them based on the workspaces they just configured. For example,
     if they set up a workspace called "backend", suggest: `gv backend test-drive`. Copy the
     command to the clipboard for them if possible. Explain what will happen (worktree created,
     tmux session opened, hooks run).
-11. Wait for the user to confirm they've created the workspace. Once they say it's done, tell
+12. Wait for the user to confirm they've created the workspace. Once they say it's done, tell
     them: "Great — now open another new terminal tab and just type `gv`." Explain that this
     opens the interactive TUI dashboard where they can see all their workspace instances, search
     and filter them, and open or delete them with keyboard shortcuts (Enter to open, Ctrl-N to
     create new, Ctrl-X or Del to remove).
-12. Once they've tried the TUI, tell them they can go back to the original tab and clean up.
+13. Once they've tried the TUI, tell them they can go back to the original tab and clean up.
     Explain the two ways to remove a workspace:
     - From inside the workspace: `gv --kms` (or `gv --kms --force` if there are uncommitted changes)
     - From the TUI: highlight the workspace and press Ctrl-X or Del
