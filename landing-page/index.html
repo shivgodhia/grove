@@ -254,22 +254,22 @@ exactly — walking me through setup and configuration one question at a time.</
     <section class="versus section-pad">
       <div class="wrap">
         <div class="section-head center">
-          <p class="eyebrow">Why not just run two agents?</p>
-          <h2>Two agents, one checkout,<br/>is a bad time.</h2>
-          <p class="lede">Agents are isolated processes — but that means nothing if they share a working directory. Point two at the same repos and they overwrite each other’s files and fight over which branch is checked out. grove gives each its own checkout.</p>
+          <p class="eyebrow">But my agent already does worktrees</p>
+          <h2>Worktrees, yes.<br/>Across your repos, no.</h2>
+          <p class="lede">Claude Code and Cursor already give each agent its own worktree — but only within a single repo. A real feature rarely stays in one. The moment your change spans a frontend and a backend, you’re back to coordinating branches across separate clones by hand. That’s the part grove does.</p>
         </div>
         <div class="versus-grid">
           <div class="versus-col by-hand">
             <div class="versus-head">
-              <span class="versus-tag">sharing a checkout</span>
-              <span class="versus-count">agents collide</span>
+              <span class="versus-tag">native worktrees</span>
+              <span class="versus-count">one repo</span>
             </div>
             <ol class="versus-steps plain">
-              <li>one agent’s edits land on top of another’s, mid-task</li>
-              <li>you <code>git stash</code> and switch branches just to see what the other one did</li>
-              <li>only one branch is checked out — so only one feature moves at a time</li>
-              <li>a half-finished refactor in the working tree breaks the other agent’s build</li>
-              <li>a change spans two repos, and now you’re juggling four terminals</li>
+              <li>a worktree per agent — but all inside the same repo</li>
+              <li>your feature also touches the backend? that’s a separate clone</li>
+              <li>you match up branch names across repos yourself</li>
+              <li>and keep the two checkouts in sync as you go</li>
+              <li>the agent only ever sees the one repo it was launched in</li>
             </ol>
           </div>
           <div class="versus-arrow" aria-hidden="true">
@@ -277,13 +277,12 @@ exactly — walking me through setup and configuration one question at a time.</
           </div>
           <div class="versus-col with-grove">
             <div class="versus-head">
-              <span class="versus-tag grove">a grove each</span>
-              <span class="versus-count">no contention</span>
+              <span class="versus-tag grove">grove</span>
+              <span class="versus-count">every repo the feature touches</span>
             </div>
             <div class="versus-one">
-              <pre class="mono"><span class="term-prompt">❯</span> gv fullstack dark-mode
-<span class="term-prompt">❯</span> gv fullstack emoji-reactions</pre>
-              <p>Every feature gets its own isolated workspace — its own worktree of each repo, its own branch, its own session. They run side by side and never touch. Clean up with <code>gv --rm</code>, or <code>gv --kms</code> from inside.</p>
+              <pre class="mono"><span class="term-prompt">❯</span> gv fullstack dark-mode</pre>
+              <p>One workspace, a worktree of every repo the feature touches, all on the same branch — and one agent that works across the whole set. Still isolated, still one command; it just doesn’t stop at the repo boundary.</p>
             </div>
           </div>
         </div>
