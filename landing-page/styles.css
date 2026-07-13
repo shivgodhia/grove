@@ -357,6 +357,10 @@ details.full-prompt > summary:hover { color: var(--accent); }
 /* ----- Features (canopy grid) -------------------------------------------- */
 .features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1rem; max-width: 860px; margin-inline: auto; }
 @media (max-width: 620px) { .features-grid { grid-template-columns: 1fr; } }
+.features-grid.two .feature { padding: 2rem 1.9rem 2.1rem; }
+.features-grid.two .feature h3 { font-size: 1.4rem; }
+.features-grid.two .feature .ficon { width: 38px; height: 38px; margin-bottom: 1.1rem; }
+.features-grid.two .feature p { font-size: 1rem; }
 .feature {
   position: relative; padding: 1.6rem 1.5rem 1.7rem; border-radius: var(--radius);
   background: var(--surface); border: 1px solid var(--rule);
@@ -402,9 +406,10 @@ details.full-prompt > summary:hover { color: var(--accent); }
 .versus-one code { font-family: "JetBrains Mono", monospace; font-size: 0.86em; color: var(--accent-ink); }
 
 /* Secondary proof-point row under the feature cards */
-.proof-row { list-style: none; margin: 1.4rem auto 0; padding: 0; max-width: 860px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-@media (max-width: 720px) { .proof-row { grid-template-columns: 1fr; } }
-.proof-row li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; padding: 0.9rem 1rem; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: var(--radius-sm); }
+.proof-row { list-style: none; margin: 1rem auto 0; padding: 0; max-width: 860px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+@media (max-width: 560px) { .proof-row { grid-template-columns: 1fr; } }
+.proof-row li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; padding: 0.9rem 1rem; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: var(--radius-sm); transition: transform 0.22s var(--ease), box-shadow 0.22s, border-color 0.22s; }
+.proof-row li:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); border-color: color-mix(in oklab, var(--accent) 35%, var(--rule)); }
 .proof-row svg { width: 20px; height: 20px; color: var(--accent); flex: none; margin-top: 0.15rem; }
 .proof-row b { color: var(--ink); font-weight: 600; }
 .proof-row code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: var(--accent-ink); }

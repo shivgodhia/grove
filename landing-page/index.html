@@ -217,32 +217,26 @@ exactly — walking me through setup and configuration one question at a time.</
           <h2>Small tool. Whole workflow.</h2>
           <p class="lede">Run several branches — and several agents — in parallel without tripping over yourself.</p>
         </div>
-        <div class="features-grid">
+        <div class="features-grid two">
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h5v5H5zM14 4h5v5h-5z"/><path d="M7.5 9v3a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9"/><path d="M12 13v3"/><rect x="9" y="16" width="6" height="4" rx="1"/></svg>
+            <h3>A monorepo on demand</h3>
+            <p>One workspace holds a worktree of every repo your feature touches — same branch, one folder. Your agent works across the whole set at once, understanding all of them, as if it were a monorepo you never had to migrate to.</p>
+          </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-            <h3>Isolated by default — no contention</h3>
-            <p>Every workspace is its own set of checkouts. Run five agents at once and none of them share a directory or a branch — no stomping on each other, no stashing, no “which agent touched this file?”</p>
-          </article>
-          <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="16" cy="17" r="1.2" fill="currentColor"/></svg>
-            <h3>A workspace spans your repos</h3>
-            <p>grove creates a worktree of every repo your feature touches — same branch, one folder. It’s a monorepo on demand: your agent works across all of them at once, without you ever having a real monorepo.</p>
-          </article>
-          <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg>
-            <h3>One agent sees every repo</h3>
-            <p>grove pulls each repo’s skills and rules into the workspace, so a single agent understands the whole set — not one blinkered agent per checkout, each blind to the others.</p>
-          </article>
-          <article class="feature reveal">
-            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
-            <h3>Survives restarts &amp; crashes</h3>
-            <p>Reboot, a crash, a killed tmux — the workspace outlives its session. Reopen it and grove brings your agent back, resuming right where you left off.</p>
+            <h3>Isolated checkouts</h3>
+            <p>Every workspace is its own private set of checkouts. Run a dozen agents in parallel and none of them share a directory or a branch — no stomping on each other, no stashing, no “which agent touched this file?”</p>
           </article>
         </div>
         <ul class="proof-row" aria-label="More about grove">
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             <span><b>Interactive TUI.</b> Type <code>gv</code> for an fzf dashboard of every workspace — branch tree and PR status included.</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
+            <span><b>Survives restarts.</b> A reboot, a crash, a killed tmux — reopen the workspace and your agent resumes right where you left off.</span>
           </li>
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8-4 4 4 4M17 8l4 4-4 4M14 4l-4 16"/></svg>
