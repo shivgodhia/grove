@@ -327,14 +327,14 @@ section { position: relative; }
 .install-note { text-align: center; margin-top: 1.4rem; color: var(--ink-soft); font-size: 0.96rem; }
 .install-note code { background: var(--surface-2); padding: 0.12em 0.45em; border-radius: 5px; font-size: 0.86em; border: 1px solid var(--rule-soft); }
 
-/* Manual install block */
-.manual { max-width: 820px; margin: 1.4rem auto 0; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
-.manual-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--rule-soft); }
-.manual-label { font-family: "Inter", sans-serif; font-size: 0.92rem; font-weight: 560; color: var(--ink-soft); }
-.manual-code { margin: 0; padding: 1.2rem 1.4rem; font-family: "JetBrains Mono", monospace; font-size: 0.85rem; line-height: 1.7; color: var(--ink); background: var(--term-bg); overflow-x: auto; }
-.manual-code { color: var(--term-ink); }
-.manual-code .c-cmt { color: var(--term-ink-dim); }
-.manual-foot { margin: 0; padding: 0.95rem 1.25rem; font-size: 0.9rem; color: var(--ink-soft); border-top: 1px solid var(--rule-soft); }
+/* Manual install block (bash, syntax-highlighted) */
+.manual-code { margin: 0; padding: 1.2rem 1.4rem; font-family: "JetBrains Mono", monospace; font-size: 0.85rem; line-height: 1.75; background: var(--term-bg); color: var(--term-ink); overflow-x: auto; }
+.manual-code .sh-cmt { color: var(--term-ink-dim); font-style: italic; }
+.manual-code .sh-cmd { color: var(--term-prompt); font-weight: 600; }
+.manual-code .sh-str { color: var(--sap); }
+.manual-code .sh-url { color: var(--term-branch); text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--term-branch) 40%, transparent); }
+.manual-code .sh-op { color: var(--term-path); }
+.manual-foot { margin: 0; padding: 0.95rem 1.4rem; font-size: 0.9rem; color: var(--ink-soft); border-top: 1px solid var(--rule-soft); background: var(--surface); }
 .manual-foot code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; background: var(--surface-2); padding: 0.08em 0.4em; border-radius: 4px; border: 1px solid var(--rule-soft); }
 
 /* Expandable full prompt */

@@ -129,32 +129,10 @@ exactly — walking me through setup and configuration one question at a time.</
           </div>
         </div>
 
-        <div class="manual">
-          <div class="manual-head">
-            <span class="manual-label">Prefer to do it by hand?</span>
-            <button class="copy-btn" id="copy-manual" data-copy-target="manual-text">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span class="copy-label">Copy</span>
-            </button>
-          </div>
-          <pre class="manual-code" id="manual-text"><span class="c-cmt"># clone grove</span>
-git clone https://github.com/shivgodhia/grove ~/.zsh/grove
-
-<span class="c-cmt"># load it in your shell</span>
-echo 'source ~/.zsh/grove/grove.zsh' >> ~/.zshrc
-
-<span class="c-cmt"># start from the example config</span>
-cp ~/.zsh/grove/grove.local.example.zsh ~/.zsh/grove/grove.local.zsh
-
-<span class="c-cmt"># reload</span>
-source ~/.zshrc</pre>
-          <p class="manual-foot">Then edit <code>grove.local.zsh</code> to point grove at your repos — the <a href="https://github.com/shivgodhia/grove#configuration">README</a> walks through every option.</p>
-        </div>
-
         <div class="expander">
           <details class="full-prompt">
             <summary>
-              <span>See the full guided-setup prompt (what the agent will run)</span>
+              <span>Or just run the full guided-setup prompt (what the agent will run)</span>
               <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </summary>
             <div class="full-prompt-inner">
@@ -169,6 +147,36 @@ source ~/.zshrc</pre>
             </div>
           </details>
         </div>
+
+        <div class="expander">
+          <details class="full-prompt manual">
+            <summary>
+              <span>Prefer to do it by hand?</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </summary>
+            <div class="full-prompt-inner">
+              <div class="fp-head">
+                <span>four commands — clone, source, config, reload</span>
+                <button class="copy-btn" id="copy-manual" data-copy-target="manual-text">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span class="copy-label">Copy</span>
+                </button>
+              </div>
+              <pre class="manual-code" id="manual-text"><span class="sh-cmt"># clone grove</span>
+<span class="sh-cmd">git</span> clone <span class="sh-url">https://github.com/shivgodhia/grove</span> ~/.zsh/grove
+
+<span class="sh-cmt"># load it in your shell</span>
+<span class="sh-cmd">echo</span> <span class="sh-str">'source ~/.zsh/grove/grove.zsh'</span> <span class="sh-op">&gt;&gt;</span> ~/.zshrc
+
+<span class="sh-cmt"># start from the example config</span>
+<span class="sh-cmd">cp</span> ~/.zsh/grove/grove.local.example.zsh ~/.zsh/grove/grove.local.zsh
+
+<span class="sh-cmt"># reload</span>
+<span class="sh-cmd">source</span> ~/.zshrc</pre>
+              <p class="manual-foot">Then edit <code>grove.local.zsh</code> to point grove at your repos — the <a href="https://github.com/shivgodhia/grove#configuration">README</a> walks through every option.</p>
+            </div>
+          </details>
+        </div>
       </div>
     </section>
 
@@ -178,7 +186,7 @@ source ~/.zshrc</pre>
         <div class="how-grid">
           <div class="section-head" style="margin-bottom:0">
             <p class="eyebrow">How it grows</p>
-            <h2>One branch name.<br/>Every repo. One command.</h2>
+            <h2>One branch name.<br/>Every repo.<br/>One command.</h2>
             <p class="lede">Set up the group once. From then on, any branch is a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call — and everything else is already done.</p>
           </div>
           <div class="steps">
@@ -382,7 +390,7 @@ source ~/.zshrc</pre>
       setInterval(function () {
         assets.forEach(function (a) {
           sig(a).then(function (s) {
-            if (s && stamps[a] && s !== stamps[a]) { location.reload(); }
+            if (s && stamps[a] && s !== stamps[a]) { location.reload(true); }
             if (s) stamps[a] = s;
           });
         });
