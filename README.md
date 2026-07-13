@@ -369,3 +369,7 @@ tmux source-file ~/.config/tmux/tmux.conf
 - tmux (for workspace session management)
 - fzf (for interactive TUI dashboard and fuzzy Tab completion)
 - gh (optional, for PR status in TUI preview pane)
+
+## License
+
+[MIT](LICENSE) © Shiv Godhia
