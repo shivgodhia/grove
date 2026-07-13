@@ -59,6 +59,7 @@
   }
   wireCopy(document.getElementById("copy-bootstrap"));
   wireCopy(document.getElementById("copy-full"));
+  wireCopy(document.getElementById("copy-manual"));
 
   /* ---------- Load full guided-setup prompt from shared file ---------- */
   (function loadPrompt() {

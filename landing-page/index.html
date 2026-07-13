@@ -129,9 +129,27 @@ exactly — walking me through setup and configuration one question at a time.</
           </div>
         </div>
 
-        <p class="install-note">
-          Prefer to do it by hand? <code>git clone … ~/.zsh/grove</code>, add <code>source ~/.zsh/grove/grove.zsh</code> to your <code>.zshrc</code>, and copy the example config. Full manual steps are in the <a href="https://github.com/shivgodhia/grove#installation">README</a>.
-        </p>
+        <div class="manual">
+          <div class="manual-head">
+            <span class="manual-label">Prefer to do it by hand?</span>
+            <button class="copy-btn" id="copy-manual" data-copy-target="manual-text">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <pre class="manual-code" id="manual-text"><span class="c-cmt"># clone grove</span>
+git clone https://github.com/shivgodhia/grove ~/.zsh/grove
+
+<span class="c-cmt"># load it in your shell</span>
+echo 'source ~/.zsh/grove/grove.zsh' >> ~/.zshrc
+
+<span class="c-cmt"># start from the example config</span>
+cp ~/.zsh/grove/grove.local.example.zsh ~/.zsh/grove/grove.local.zsh
+
+<span class="c-cmt"># reload</span>
+source ~/.zshrc</pre>
+          <p class="manual-foot">Then edit <code>grove.local.zsh</code> to point grove at your repos — the <a href="https://github.com/shivgodhia/grove#configuration">README</a> walks through every option.</p>
+        </div>
 
         <div class="expander">
           <details class="full-prompt">
