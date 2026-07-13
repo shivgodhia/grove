@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en" data-theme-init>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>grove — parallel worktrees, one command</title>
+  <meta name="description" content="grove is a lightweight Zsh tool that manages multi-repo git worktrees with tmux integration — spin up isolated checkouts across every repo, and run parallel AI coding agents, from a single command." />
+  <meta name="theme-color" content="#16281c" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4efe2" media="(prefers-color-scheme: light)" />
+  <meta property="og:title" content="grove — parallel worktrees, one command" />
+  <meta property="og:description" content="A lightweight Zsh tool for multi-repo git worktrees with tmux — run parallel AI coding agents in isolated checkouts from a single command." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://grove.shivgodhia.com" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    // Set theme before paint to avoid flash. Respects saved choice, else OS.
+    (function () {
+      try {
+        var t = localStorage.getItem("grove-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- ===================== Header ===================== -->
+  <header class="masthead" id="masthead">
+    <div class="wrap">
+      <a class="brand" href="#top" aria-label="grove home">
+        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 29V15" stroke="var(--wood)" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M16 20c-1-4-4-5.5-7-6 2.5 3 3 5 7 7Z" fill="var(--accent)"/>
+          <path d="M16 17c1-4.5 4-6 7.5-6.5-2.6 3.3-3.2 5.4-7.5 7.6Z" fill="var(--accent-bright)"/>
+          <circle cx="16" cy="9.5" r="6" fill="var(--accent)"/>
+          <circle cx="10.5" cy="13" r="4" fill="var(--accent-bright)" opacity="0.9"/>
+          <circle cx="21.5" cy="13" r="4" fill="var(--accent-bright)" opacity="0.9"/>
+        </svg>
+        <span>grove</span>
+      </a>
+      <nav>
+        <a href="#how" class="nav-hide">How it works</a>
+        <a href="#features" class="nav-hide">Features</a>
+        <a href="#commands" class="nav-hide nav-link-mono">gv&nbsp;--help</a>
+        <a href="https://github.com/shivgodhia/grove" class="nav-link-mono">GitHub&nbsp;↗</a>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle theme">
+          <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ===================== Hero ===================== -->
+    <section class="hero">
+      <canvas id="grove-canvas" aria-hidden="true"></canvas>
+      <div class="hero-veil" aria-hidden="true"></div>
+      <div class="wrap">
+        <div class="hero-copy">
+          <p class="eyebrow">Zsh · git worktrees · tmux</p>
+          <h1>Plant a <span class="leaf-word">grove</span> of worktrees<br/>from one command.</h1>
+          <p class="tagline">Working across a frontend and a backend? <b>grove</b> creates matching worktrees in every repo, drops them in one tmux session, and — if you want — launches an AI agent in each. Isolated checkouts, shared roots.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#install">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+              Get grove
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/shivgodhia/grove">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.56-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.28 5.69.42.36.79 1.07.79 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
+              View source
+            </a>
+          </div>
+          <div class="hero-meta">
+            <span><i class="dot"></i>One command, every repo</span>
+            <span><i class="dot"></i>Rollback on failure</span>
+            <span><i class="dot"></i>MIT licensed</span>
+          </div>
+        </div>
+
+        <!-- Live-feeling terminal -->
+        <div class="terminal hero-term" id="hero-term" role="img" aria-label="Terminal: running gv fullstack fix-auth creates worktrees for frontend and backend on the same branch and opens a tmux session.">
+          <div class="term-bar">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="title">grove/fullstack/fix-auth — tmux</div>
+          </div>
+          <div class="term-body" id="term-body">
+            <div class="row"><span class="term-prompt">~/groveyard</span> <span class="term-dim">❯</span> <span class="term-cmd">gv fullstack fix-auth</span></div>
+            <div class="row term-dim">  🌱 planting workspace <span class="term-leaf">fullstack/fix-auth</span></div>
+            <div class="row term-dim">  ├─ frontend   <span class="term-branch">shiv/fix-auth</span>  <span class="term-leaf">✓ worktree</span></div>
+            <div class="row term-dim">  └─ backend    <span class="term-branch">shiv/fix-auth</span>  <span class="term-leaf">✓ worktree</span></div>
+            <div class="row term-dim">  ⬡ tmux session up · post-startup hooks running</div>
+            <div class="row">&nbsp;</div>
+            <div class="row"><span class="term-prompt">fullstack/fix-auth</span> <span class="term-dim">❯</span> <span class="term-cmd">claude</span><span class="cursor-blink" aria-hidden="true"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Install ===================== -->
+    <section class="install section-pad" id="install">
+      <div class="wrap">
+        <div class="section-head center">
+          <p class="eyebrow">Installation</p>
+          <h2>Hand this to your coding agent.</h2>
+          <p class="lede">grove installs itself. Paste this into Claude Code (or any AI CLI) — it clones grove, then follows the guided setup baked into the repo, one question at a time.</p>
+        </div>
+
+        <div class="install-card">
+          <div class="card-head">
+            <span class="label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/><path d="m8 10 2 2-2 2M13 14h3"/></svg>
+              bootstrap prompt
+            </span>
+            <button class="copy-btn" id="copy-bootstrap" data-copy-target="bootstrap-text">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <div class="prompt-box">
+<pre id="bootstrap-text"><span class="p-mut">Clone grove from</span> <span class="p-key">https://github.com/shivgodhia/grove</span> <span class="p-mut">to</span> <span class="p-key">~/.zsh/grove</span><span class="p-mut">.
+Then open its README.md, find the guided "Installation" prompt, and follow it
+exactly — walking me through setup and configuration one question at a time.</span></pre>
+          </div>
+        </div>
+
+        <p class="install-note">
+          Prefer to do it by hand? <code>git clone … ~/.zsh/grove</code>, add <code>source ~/.zsh/grove/grove.zsh</code> to your <code>.zshrc</code>, and copy the example config. Full manual steps are in the <a href="https://github.com/shivgodhia/grove#installation">README</a>.
+        </p>
+
+        <div class="expander">
+          <details class="full-prompt">
+            <summary>
+              <span>See the full guided-setup prompt (what the agent will run)</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </summary>
+            <div class="full-prompt-inner">
+              <div class="fp-head">
+                <span id="fp-source">sourced from the grove README — the single source of truth</span>
+                <button class="copy-btn" id="copy-full" data-copy-target="full-prompt-text">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span class="copy-label">Copy</span>
+                </button>
+              </div>
+              <pre id="full-prompt-text">Loading the guided-setup prompt…</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== How it works ===================== -->
+    <section class="how section-pad" id="how">
+      <div class="wrap">
+        <div class="how-grid">
+          <div class="section-head" style="margin-bottom:0">
+            <p class="eyebrow">How it grows</p>
+            <h2>One branch name.<br/>Every repo. Same instant.</h2>
+            <p class="lede">Define a workspace once — a group of repos that belong together. From then on, a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call fans that branch out across all of them.</p>
+          </div>
+          <div class="steps">
+            <div class="step">
+              <div class="num" aria-hidden="true"></div>
+              <div>
+                <h3>Group your repos</h3>
+                <p><code>grove_workspaces[fullstack]="frontend backend"</code> — or skip it; any single repo is a workspace automatically.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num" aria-hidden="true"></div>
+              <div>
+                <h3>Call it once</h3>
+                <p><code>gv fullstack fix-auth</code> fetches, resolves the branch (tracking a remote if it exists, creating it where it doesn't), and cuts a worktree in each repo.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num" aria-hidden="true"></div>
+              <div>
+                <h3>Everything lands together</h3>
+                <p>All worktrees live under one workspace directory, with each repo's <code>.claude/skills</code> and <code>.cursor</code> merged in — so agents see the whole workspace.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num" aria-hidden="true"></div>
+              <div>
+                <h3>Open the session</h3>
+                <p>grove opens a tmux session and runs your hooks — install deps, launch <code>claude</code>, lay out panes. Reopen later and your agent resumes where it left off.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Features ===================== -->
+    <section class="section-pad" id="features">
+      <div class="wrap">
+        <div class="section-head center">
+          <p class="eyebrow">The canopy</p>
+          <h2>Small tool. Deep roots.</h2>
+          <p class="lede">Everything you need to run several branches — and several agents — in parallel without tripping over yourself.</p>
+        </div>
+        <div class="features-grid">
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9c0 6-6 4-6 9"/></svg>
+            <h3>Multi-repo workspaces</h3>
+            <p>Group projects together and one command cuts worktrees across all of them — every repo on the same branch name, ready at once.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-8M12 14 8 10M12 14l4-4"/><path d="M4 6a4 4 0 0 1 8 0 4 4 0 0 1 8 0"/></svg>
+            <h3>Smart branch resolution</h3>
+            <p>Tracks an existing remote branch where it finds one and creates a fresh branch where it doesn't — so teammates' branches just check out everywhere.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg>
+            <h3>Agent config, merged</h3>
+            <p>Each repo's <code>.claude/skills</code> and <code>.cursor</code> are copied into the workspace root — names prefixed to avoid collisions — so your agent sees everything.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v12"/><path d="M2 17h20v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2Z"/><path d="M7 8l3 2-3 2"/></svg>
+            <h3>tmux, per workspace</h3>
+            <p>One session per instance, auto-named <code>grove/&lt;ws&gt;/&lt;name&gt;</code> — which your terminal shows as the tab title, so a wall of tabs stays legible.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6M11 8v6"/></svg>
+            <h3>Interactive TUI</h3>
+            <p>Type <code>gv</code> with no args for an fzf dashboard of every workspace — with a live branch tree and PR status in the preview pane.</p>
+          </article>
+          <article class="feature reveal">
+            <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
+            <h3>Rollback on failure</h3>
+            <p>If any worktree in the set fails to create, grove tears the whole thing back down — no half-planted workspace left behind.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Commands ===================== -->
+    <section class="cmds section-pad" id="commands">
+      <div class="wrap">
+        <div class="section-head center">
+          <p class="eyebrow">Field guide</p>
+          <h2>The whole vocabulary.</h2>
+          <p class="lede">One verb — <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> — does it all.</p>
+        </div>
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="title">gv --help</div>
+          </div>
+          <div class="cmd-table">
+            <div class="cmd-group-label">everyday</div>
+            <div class="cmd-row"><div class="c">gv</div><div class="d">Open the interactive TUI dashboard</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">&lt;workspace&gt; &lt;name&gt;</span></div><div class="d">Create or attach to a workspace instance</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">&lt;workspace&gt; &lt;name&gt; &lt;cmd&gt;</span></div><div class="d">Run a command in the workspace (no tmux)</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--ls</span></div><div class="d">Show the branch tree for the current workspace</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--list</span></div><div class="d">List every workspace and instance</div></div>
+
+            <div class="cmd-group-label">tending</div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--no-tmux &lt;workspace&gt; &lt;name&gt;</span></div><div class="d">Create it, print its dir, skip tmux (for scripts &amp; agents)</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--rm [--force] &lt;ws&gt; &lt;name&gt;</span></div><div class="d">Remove an instance (<span class="flag">--force</span> if it's dirty)</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--kms [--force]</span></div><div class="d">Remove the current workspace, from inside it</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--home</span></div><div class="d">cd to your projects directory</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--update</span></div><div class="d">Pull the latest grove (must be on main)</div></div>
+            <div class="cmd-row"><div class="c">gv <span class="flag">--help</span></div><div class="d">Show the full usage guide</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Closing ===================== -->
+    <section class="closing section-pad">
+      <div class="wrap">
+        <div class="leaf-divider" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 6 5 10 5 14a7 7 0 0 0 14 0c0-4-2-8-7-12Zm0 4c2.5 2.5 4 5 4 8a4 4 0 0 1-8 0c0-3 1.5-5.5 4-8Z"/></svg>
+        </div>
+        <h2>Stop stashing. Start branching in parallel.</h2>
+        <p class="lede">grove is one Zsh file, MIT-licensed, and installs itself in a couple of minutes.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#install">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            Get grove
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/shivgodhia/grove">Read the README ↗</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-foot">
+    <div class="wrap">
+      <span class="foot-brand">
+        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 29V15" stroke="var(--wood)" stroke-width="2.2" stroke-linecap="round"/>
+          <circle cx="16" cy="9.5" r="6" fill="var(--accent)"/>
+          <circle cx="10.5" cy="13" r="4" fill="var(--accent-bright)" opacity="0.9"/>
+          <circle cx="21.5" cy="13" r="4" fill="var(--accent-bright)" opacity="0.9"/>
+        </svg>
+        grove
+      </span>
+      <nav class="foot-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#commands">Commands</a>
+        <a href="https://github.com/shivgodhia/grove">GitHub</a>
+        <a href="https://github.com/shivgodhia/grove/blob/main/LICENSE">License</a>
+      </nav>
+      <p class="foot-fine">
+        A project by <a href="https://www.shivgodhia.com">Shiv Godhia</a>. Free &amp; open source under the MIT License — grove isn't a product, just a tool worth sharing. Built for people running parallel AI coding agents across repos.
+      </p>
+    </div>
+  </footer>
+
+  <script src="grove.js"></script>
+</body>
+</html>
