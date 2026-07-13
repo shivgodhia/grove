@@ -85,6 +85,16 @@ Then walk through configuration:
    Ask which one they use. Based on their choice, set GROVE_DEFAULT_POST_STARTUP_COMMAND to the
    appropriate command (`claude`, `codex`, `cursor .`, or their custom command).
    Explain that this is a post-startup hook that runs every time a tmux session is created.
+   If they chose Claude Code, recommend
+   `claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions`
+   (drop `--dangerously-skip-permissions` if they'd rather be prompted). Explain why this fits
+   grove: a worktree outlives its tmux session — the session dies on reboot or `tmux kill-session`,
+   but the worktree stays — so when they re-open that workspace, grove spins up a fresh session and
+   runs the startup command again. Plain `claude` would start cold with no memory of the prior
+   work in that worktree; `--continue` resumes the most recent conversation for that directory, so
+   they pick up exactly where they left off. The `|| claude` fallback covers the first run, when
+   there's no conversation to continue yet and `--continue` would otherwise error.
+   (Codex users can get the same with `codex resume --last`.)
    Then ask if any specific workspaces need a different startup command (e.g. a different agent,
    or a tmux split pane layout) — if so, configure those as per-workspace overrides
    with grove_post_startup_commands[workspace].
@@ -177,14 +187,24 @@ grove_post_create_commands[backend]="yarn && npx prisma generate"
 grove_post_create_commands[frontend]="pnpm install"
 ```
 
+**Background slow installs.** A blocking `pnpm install` holds up the tmux session (and your agent) until it finishes. Detach the slow part with `nohup … &` and log it, so the worktree is usable immediately. Keep fast, ordering-sensitive steps (branch tracking, config symlinks) in the foreground first:
+
+```sh
+grove_post_create_commands[backend]="npx prisma generate && nohup zsh -c 'yarn' > /tmp/grove-backend-install.log 2>&1 &"
+```
+
+Watch progress with `tail -f /tmp/grove-backend-install.log`.
+
 #### Post-startup hooks
 
 Per-workspace commands that run every time a new tmux session is created:
 
 ```sh
-GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
+GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
 grove_post_startup_commands[fullstack]="cursor ."
 ```
+
+**Auto-resume your agent.** A worktree outlives its tmux session — the session dies on reboot or `tmux kill-session`, but the worktree stays. When you re-open the workspace, grove spins up a fresh session and runs this command again. Plain `claude` starts cold with no memory of the prior work in that worktree; `--continue` resumes the most recent conversation for that directory. The `|| claude` fallback covers the first run, when there's no conversation to continue yet. (Codex users can get the same with `codex resume --last`.)
 
 ## Usage
 
