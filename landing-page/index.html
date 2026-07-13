@@ -14,12 +14,15 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
   <script>
-    // Set theme before paint to avoid flash. Respects saved choice, else OS.
+    // Set theme before paint to avoid flash. Dark is the default; a saved
+    // choice (from the toggle) wins over it.
     (function () {
+      var t = "dark";
       try {
-        var t = localStorage.getItem("grove-theme");
-        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+        var saved = localStorage.getItem("grove-theme");
+        if (saved === "light" || saved === "dark") t = saved;
       } catch (e) {}
+      document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
 </head>
