@@ -67,11 +67,25 @@ Then walk through configuration:
    <prefix>/branch-name.
 3. Ask whether I have a GitHub organization I work out of. If I do, and the `gh` CLI is
    available and authenticated (`gh auth status`), list the org's active repos so I can pick
-   which to clone rather than typing each name by hand — for example:
-   `gh repo list <org> --limit 100 --json name,description,pushedAt,isArchived --jq 'sort_by(.pushedAt) | reverse | .[] | select(.isArchived==false) | "\(.name)\t\(.pushedAt[0:10])\t\(.description // "")"'`
+   which to clone rather than typing each name by hand. Sort by the **default branch's last
+   commit date** — a truer "recently worked on" signal than `pushedAt`, which any branch push
+   bumps — and skip archived repos:
+   ```sh
+   gh api graphql -f query='
+   {
+     organization(login: "<org>") {
+       repositories(first: 100, isArchived: false, orderBy: {field: PUSHED_AT, direction: DESC}) {
+         nodes { name description defaultBranchRef { target { ... on Commit { committedDate } } } }
+       }
+     }
+   }' --jq '.data.organization.repositories.nodes
+     | map(select(.defaultBranchRef != null))
+     | sort_by(.defaultBranchRef.target.committedDate) | reverse
+     | .[] | "\(.defaultBranchRef.target.committedDate[0:10])  \(.name)\t\(.description // "")"'
+   ```
    Present the most recently active ones first (they're the likeliest to be worked on), let me
-   multi-select, and skip archived repos. If I don't have an org or `gh` isn't set up, just fall
-   back to asking for repos by name/URL.
+   multi-select. If I don't have an org or `gh` isn't set up, just fall back to asking for repos
+   by name/URL.
 4. For each repo I chose (from the org or named directly):
    - Clone it into the projects directory.
    - Read the project's README to figure out what setup commands are needed (e.g. npm install,
