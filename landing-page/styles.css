@@ -386,6 +386,10 @@ details.full-prompt > summary:hover { color: var(--accent); }
 .versus-steps { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.55rem; color: var(--ink-soft); font-size: 0.92rem; line-height: 1.45; }
 .versus-steps li { padding-left: 0.2rem; }
 .versus-steps li::marker { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+/* Plain (non-sequential) variant: dashes instead of numbers */
+.versus-steps.plain { list-style: none; padding-left: 0.2rem; }
+.versus-steps.plain li { position: relative; padding-left: 1.3rem; }
+.versus-steps.plain li::before { content: "✕"; position: absolute; left: 0; color: color-mix(in oklab, #e06c5b 80%, var(--ink-faint)); font-weight: 700; font-size: 0.9em; }
 .versus-steps code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: var(--ink); background: color-mix(in oklab, var(--ink) 7%, transparent); padding: 0.05em 0.34em; border-radius: 4px; }
 .versus-arrow { display: grid; place-items: center; color: var(--accent); }
 .versus-arrow svg { width: 30px; height: 30px; }
@@ -395,6 +399,14 @@ details.full-prompt > summary:hover { color: var(--accent); }
 .versus-one pre .term-prompt { color: var(--term-prompt); }
 .versus-one p { color: var(--ink-soft); font-size: 0.94rem; line-height: 1.6; }
 .versus-one code { font-family: "JetBrains Mono", monospace; font-size: 0.86em; color: var(--accent-ink); }
+
+/* Secondary proof-point row under the feature cards */
+.proof-row { list-style: none; margin: 1.4rem auto 0; padding: 0; max-width: 860px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+@media (max-width: 720px) { .proof-row { grid-template-columns: 1fr; } }
+.proof-row li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; padding: 0.9rem 1rem; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: var(--radius-sm); }
+.proof-row svg { width: 20px; height: 20px; color: var(--accent); flex: none; margin-top: 0.15rem; }
+.proof-row b { color: var(--ink); font-weight: 600; }
+.proof-row code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: var(--accent-ink); }
 
 /* ----- How it works (roots → saplings) ----------------------------------- */
 .how { background: var(--bg-veil); border-top: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft); }
