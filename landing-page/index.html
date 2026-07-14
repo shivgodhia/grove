@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>grove — multi-repo worktrees for AI agents</title>
-  <meta name="description" content="A lightweight Zsh tool that gives each feature its own workspace — a worktree of every repo it touches, on one branch — so a single agent works across them like a monorepo, and many run in parallel without colliding." />
+  <meta name="description" content="A lightweight Zsh tool that gives each feature its own workspace: a worktree of every repo it touches, so a single agent works across them like a monorepo, and many run in parallel without colliding." />
   <meta name="theme-color" content="#16281c" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4efe2" media="(prefers-color-scheme: light)" />
   <meta property="og:title" content="grove — multi-repo worktrees for AI agents" />
-  <meta property="og:description" content="Give every agent its own grove: a workspace with a worktree of every repo your feature touches, on one branch, so a single agent works across them like a monorepo — and many run in parallel without colliding." />
+  <meta property="og:description" content="Give every agent its own grove: a workspace with a worktree of every repo your feature touches, so a single agent works across them like a monorepo, and many run in parallel without colliding." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://grove.shivgodhia.com" />
   <meta property="og:image" content="https://grove.shivgodhia.com/og.png" />
@@ -17,7 +17,7 @@
   <meta property="og:image:alt" content="grove — give every agent its own grove. Multi-repo worktrees for AI agents." />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="grove — multi-repo worktrees for AI agents" />
-  <meta name="twitter:description" content="Give every agent its own grove: a worktree of every repo your feature touches, on one branch, so one agent works across them like a monorepo." />
+  <meta name="twitter:description" content="Give every agent its own grove: a worktree of every repo your feature touches, so one agent works across them like a monorepo." />
   <meta name="twitter:image" content="https://grove.shivgodhia.com/og.png" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
@@ -53,6 +53,7 @@
         <a href="#how" class="nav-hide">How it works</a>
         <a href="#features" class="nav-hide">Features</a>
         <a href="#commands" class="nav-hide">Guide</a>
+        <a href="#install" class="nav-hide">Install</a>
         <a href="https://github.com/shivgodhia/grove" class="nav-link-mono">GitHub&nbsp;↗</a>
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle theme">
           <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -70,7 +71,7 @@
         <div class="hero-copy">
           <p class="eyebrow">Multi-repo worktrees for AI agents</p>
           <h1>Give every agent<br/>its own <span class="leaf-word">grove</span>.</h1>
-          <p class="tagline">A grove is a workspace with a worktree of every repo your feature touches — all on one branch, so a single agent works across them like a monorepo. Each is isolated, so you can run a dozen in parallel.</p>
+          <p class="tagline">A workspace with a worktree of every repo your feature touches, so a single agent works across them all like a monorepo. Each workspace is isolated, so you can run a dozen in parallel.</p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#install">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -119,7 +120,7 @@
         <div class="section-head center">
           <p class="eyebrow">Installation</p>
           <h2>Hand this to your coding agent.</h2>
-          <p class="lede">grove installs itself. Paste this into Claude Code (or any AI CLI) — it clones grove, then follows the guided setup baked into the repo, one question at a time.</p>
+          <p class="lede"><span class="brand-word">grove</span> installs itself. Paste this into Claude Code (or any AI CLI). It clones <span class="brand-word">grove</span>, then follows the guided setup baked into the repo, one question at a time.</p>
         </div>
 
         <div class="install-card">
@@ -136,7 +137,7 @@
           <div class="prompt-box">
 <pre id="bootstrap-text"><span class="p-mut">Clone grove from</span> <span class="p-key">https://github.com/shivgodhia/grove</span> <span class="p-mut">to</span> <span class="p-key">~/.zsh/grove</span><span class="p-mut">.
 Then open its README.md, find the guided "Installation" prompt, and follow it
-exactly — walking me through setup and configuration one question at a time.</span></pre>
+exactly, walking me through setup and configuration one question at a time.</span></pre>
           </div>
         </div>
 
@@ -148,7 +149,7 @@ exactly — walking me through setup and configuration one question at a time.</
             </summary>
             <div class="full-prompt-inner">
               <div class="fp-head">
-                <span id="fp-source">also available in the grove README</span>
+                <span id="fp-source">also available in the <span class="brand-word">grove</span> README</span>
                 <button class="copy-btn" id="copy-full" data-copy-target="full-prompt-text">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   <span class="copy-label">Copy</span>
@@ -167,7 +168,7 @@ exactly — walking me through setup and configuration one question at a time.</
             </summary>
             <div class="full-prompt-inner">
               <div class="fp-head">
-                <span>four commands — clone, source, config, reload</span>
+                <span>four commands: clone, source, config, reload</span>
                 <button class="copy-btn" id="copy-manual" data-copy-target="manual-text">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   <span class="copy-label">Copy</span>
@@ -184,7 +185,7 @@ exactly — walking me through setup and configuration one question at a time.</
 
 <span class="sh-cmt"># reload</span>
 <span class="sh-cmd">source</span> ~/.zshrc</pre>
-              <p class="manual-foot">Then edit <code>grove.local.zsh</code> to point grove at your repos — the <a href="https://github.com/shivgodhia/grove#configuration">README</a> walks through every option.</p>
+              <p class="manual-foot">Then edit <code>grove.local.zsh</code> to point <span class="brand-word">grove</span> at your repos. The <a href="https://github.com/shivgodhia/grove#configuration">README</a> walks through every option.</p>
             </div>
           </details>
         </div>
@@ -197,22 +198,22 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="how-grid">
           <div class="section-head" style="margin-bottom:0">
             <p class="eyebrow">How it grows</p>
-            <h2>One workspace.<br/>Every repo.<br/>One command.</h2>
-            <p class="lede">Set up the group once. From then on, any branch is a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call — and everything else is already done.</p>
+            <h2>One command.<br/>A workspace of worktrees<br/>for every repo.</h2>
+            <p class="lede">Set up the group once. From then on, any branch is a single <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> call, and everything else is already done.</p>
           </div>
           <div class="steps">
             <div class="step">
               <div class="num" aria-hidden="true"></div>
               <div>
                 <h3>Set up once</h3>
-                <p>Name a group of repos: <code>fullstack = frontend + backend</code>.</p>
+                <p>Name groups of repos: <code>fullstack = frontend + backend</code>, <code>db-backfill = backend + db-admin</code>, <code>everything = frontend + backend + db-admin</code>, etc.</p>
               </div>
             </div>
             <div class="step">
               <div class="num" aria-hidden="true"></div>
               <div>
                 <h3>Then, one command</h3>
-                <p><code>gv fullstack dark-mode</code> — a worktree in every repo on the same branch, deps installed, one agent that sees them all, in a fresh tmux session with your agent already running. Any repo fails, they all roll back.</p>
+                <p><code>gv fullstack dark-mode</code>: a worktree in every repo, deps installed, one agent that sees them all, in a fresh tmux session with your agent already running. Any repo fails, they all roll back.</p>
               </div>
             </div>
           </div>
@@ -225,37 +226,45 @@ exactly — walking me through setup and configuration one question at a time.</
       <div class="wrap">
         <div class="section-head center">
           <p class="eyebrow">What it does</p>
-          <h2>Small tool. Whole workflow.</h2>
-          <p class="lede">Run several branches — and several agents — in parallel without tripping over yourself.</p>
+          <h2>Small tool. Big workflow.</h2>
+          <p class="lede">One command sets up worktrees, deps, and tmux across every repo, so you can run a dozen agents at once without the mess.</p>
         </div>
         <div class="features-grid two">
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h5v5H5zM14 4h5v5h-5z"/><path d="M7.5 9v3a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V9"/><path d="M12 13v3"/><rect x="9" y="16" width="6" height="4" rx="1"/></svg>
             <h3>A monorepo on demand</h3>
-            <p>One workspace holds a worktree of every repo your feature touches — same branch, one folder. Your agent works across the whole set at once, understanding all of them, as if it were a monorepo you never had to migrate to.</p>
+            <p>One workspace holds a worktree of every repo your feature touches, in one folder. Your agent works across the whole set at once, understanding all of them, as if it were a monorepo you never had to migrate to.</p>
           </article>
           <article class="feature reveal">
             <svg class="ficon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
             <h3>Isolated checkouts</h3>
-            <p>Every workspace is its own private set of checkouts. Run a dozen agents in parallel and none of them share a directory or a branch — no stomping on each other, no stashing, no “which agent touched this file?”</p>
+            <p>Every workspace is its own private set of checkouts. Run a dozen agents in parallel and none of them share a directory or a branch. No stomping on each other, no stashing, no “which agent touched this file?”</p>
           </article>
         </div>
         <ul class="proof-row" aria-label="More about grove">
           <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>
+            <span><b>Setup, your way.</b> Per-repo hooks run on every worktree: install deps, generate clients, load <code>.envrc</code>, whatever the repo needs, done before you touch it.</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>
+            <span><b>tmux, wired up.</b> Every plant spins up a tmux session with your agent already launched: a window per repo, panes laid out, nothing to open by hand.</span>
+          </li>
+          <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <span><b>Interactive TUI.</b> Type <code>gv</code> for an fzf dashboard of every workspace — branch tree and PR status included.</span>
+            <span><b>Interactive TUI.</b> Type <code>gv</code> for an fzf dashboard of every workspace, branch tree and PR status included.</span>
           </li>
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
-            <span><b>Survives restarts.</b> A reboot, a crash, a killed tmux — reopen the workspace and your agent resumes right where you left off.</span>
+            <span><b>Survives restarts.</b> A reboot, a crash, a killed tmux: reopen the workspace and your agent resumes right where you left off.</span>
           </li>
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 8-4 4 4 4M17 8l4 4-4 4M14 4l-4 16"/></svg>
-            <span><b>One Zsh file, MIT.</b> No app, no binary, no daemon — lightweight, open source, yours to read and hack.</span>
+            <span><b>One Zsh file, MIT.</b> No app, no binary, no daemon. Just a lightweight, open-source file, yours to read and hack.</span>
           </li>
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v4h4"/><path d="M9 12l2 2 4-4"/></svg>
-            <span><b>Atomic setup.</b> If any repo fails, grove rolls the whole workspace back — no half-planted mess to clean up.</span>
+            <span><b>Atomic setup.</b> If any repo's worktree creation fails, <span class="brand-word">grove</span> rolls the whole workspace back. No half-planted mess to clean up.</span>
           </li>
         </ul>
       </div>
@@ -267,7 +276,7 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="section-head center">
           <p class="eyebrow">But my agent already does worktrees</p>
           <h2>Worktrees, yes.<br/>Across your repos, no.</h2>
-          <p class="lede">Claude Code and Cursor already give each agent its own worktree — but only within a single repo. A real feature rarely stays in one. The moment your change spans a frontend and a backend, you’re back to coordinating branches across separate clones by hand. That’s the part grove does.</p>
+          <p class="lede">Claude Code and Cursor already give each agent its own worktree, but only within a single repo. A real feature rarely stays in one. The moment your change spans a frontend and a backend, you’re back to coordinating branches across separate clones by hand. That’s the part <span class="brand-word">grove</span> does.</p>
         </div>
         <div class="versus-grid">
           <div class="versus-col by-hand">
@@ -276,7 +285,7 @@ exactly — walking me through setup and configuration one question at a time.</
               <span class="versus-count">one repo each</span>
             </div>
             <ol class="versus-steps plain">
-              <li>a worktree per agent — but only within one repo</li>
+              <li>a worktree per agent, but only within one repo</li>
               <li>a feature that spans frontend and backend means two of them</li>
               <li>two agents, each seeing only its own repo</li>
               <li>and you’re the one relaying context between them</li>
@@ -292,7 +301,7 @@ exactly — walking me through setup and configuration one question at a time.</
             </div>
             <div class="versus-one">
               <pre class="mono"><span class="term-prompt">❯</span> gv fullstack dark-mode</pre>
-              <p>One workspace, a worktree of every repo the feature touches, all on the same branch — and a single agent that sees the whole set, so nobody has to relay context between them. Still isolated, still one command.</p>
+              <p>One workspace, a worktree of every repo the feature touches, and a single agent that sees the whole set, so nobody has to relay context between them. Still isolated, still one command.</p>
             </div>
           </div>
         </div>
@@ -305,7 +314,7 @@ exactly — walking me through setup and configuration one question at a time.</
         <div class="section-head center">
           <p class="eyebrow">Field guide</p>
           <h2>The whole vocabulary.</h2>
-          <p class="lede">One verb — <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code> — does it all.</p>
+          <p class="lede">One verb, <code style="font-family:'JetBrains Mono',monospace;color:var(--accent-ink)">gv</code>, does it all.</p>
         </div>
         <div class="terminal">
           <div class="term-bar">
@@ -339,7 +348,7 @@ exactly — walking me through setup and configuration one question at a time.</
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C7 6 5 10 5 14a7 7 0 0 0 14 0c0-4-2-8-7-12Zm0 4c2.5 2.5 4 5 4 8a4 4 0 0 1-8 0c0-3 1.5-5.5 4-8Z"/></svg>
         </div>
         <h2>Give every feature its own <span class="leaf-word">grove</span>.</h2>
-        <p class="lede">Isolated workspaces across your repos, so your agents run in parallel without stepping on each other. grove is one Zsh file, MIT-licensed, and installs itself in a couple of minutes.</p>
+        <p class="lede">Isolated workspaces across your repos, so your agents run in parallel without stepping on each other. <span class="brand-word">grove</span> is one Zsh file, MIT-licensed, and installs itself in a couple of minutes.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#install">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -371,7 +380,7 @@ exactly — walking me through setup and configuration one question at a time.</
         <a href="https://github.com/shivgodhia/grove/blob/main/LICENSE">License</a>
       </nav>
       <p class="foot-fine">
-        A project by <a href="https://www.shivgodhia.com">Shiv Godhia</a>. Free &amp; open source under the MIT License — grove isn't a product, just a tool worth sharing. Built for people running parallel AI coding agents across repos.
+        A project by <a href="https://www.shivgodhia.com">Shiv Godhia</a>. Free &amp; open source under the MIT License. <span class="brand-word">grove</span> isn't a product, just a tool worth sharing. Built for people running parallel AI coding agents across repos.
       </p>
     </div>
   </footer>
