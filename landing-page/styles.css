@@ -395,7 +395,9 @@ details.full-prompt > summary:hover { color: var(--accent); }
 @media (max-width: 780px) { .versus-grid { grid-template-columns: 1fr; } }
 .versus-col { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.5rem 1.6rem; display: flex; flex-direction: column; }
 .versus-col.by-hand { background: var(--surface-sunken); }
-.versus-col.with-grove { border-color: color-mix(in oklab, var(--accent) 45%, var(--rule)); box-shadow: var(--shadow-md); }
+.versus-col.with-grove { border-color: color-mix(in oklab, var(--accent) 45%, var(--rule)); box-shadow: var(--shadow-md); transform: perspective(1400px) rotateY(4deg) rotateX(1.5deg); transition: transform 0.5s var(--ease); }
+.versus-col.with-grove:hover { transform: perspective(1400px) rotateY(0deg) rotateX(0deg); }
+@media (max-width: 900px) { .versus-col.with-grove { transform: none; } .versus-col.with-grove:hover { transform: none; } }
 .versus-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--rule-soft); flex-wrap: wrap; }
 .versus-tag { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
 .versus-tag.grove { color: var(--accent); }
