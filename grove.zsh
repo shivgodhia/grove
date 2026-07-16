@@ -322,6 +322,21 @@ _grove_worktree_branch_parents() {
     fi
 }
 
+# Check whether an EXACT branch name exists on origin for a given repo.
+# Returns 0 (and prints the ref sha line) if origin has refs/heads/$branch exactly.
+#
+# NOTE: `git ls-remote --heads origin "$pat"` treats $pat as a glob matched
+# against the tail of each ref, so a bare "foo" spuriously matches
+# "refs/heads/user/foo". Anchoring with the full "refs/heads/$branch" ref
+# path forces an exact match and avoids that false positive.
+_grove_remote_branch_exists() {
+    local project="$1" branch="$2"
+    [[ -n "$branch" ]] || return 1
+    local out
+    out=$(git -C "$GROVE_PROJECTS_DIR/$project" ls-remote --heads origin "refs/heads/$branch" 2>/dev/null)
+    [[ -n "$out" ]]
+}
+
 # Resolve branch name, checking for conflicts on remote.
 # If $GROVE_BRANCH_PREFIX/$name conflicts with any repo, use date-prefixed version.
 # Outputs the resolved branch name.
@@ -332,10 +347,9 @@ _grove_resolve_branch_name() {
     projects=$(_grove_resolve_workspace_projects "$workspace") || return 1
     local -a project_list=(${(s: :)projects})
 
-    local project conflict=0 remote_check
+    local project conflict=0
     for project in "${project_list[@]}"; do
-        remote_check=$(git -C "$GROVE_PROJECTS_DIR/$project" ls-remote --heads origin "$candidate" 2>/dev/null)
-        if [[ -n "$remote_check" ]]; then
+        if _grove_remote_branch_exists "$project" "$candidate"; then
             conflict=1
             break
         fi
@@ -1031,21 +1045,33 @@ HELP
         done
 
         # b. Branch resolution
-        # Check if raw $name (no prefix) exists on origin for any repo
-        local raw_branch_exists=0 remote_check
-        for project in "${project_list[@]}"; do
-            remote_check=$(git -C "$projects_dir/$project" ls-remote --heads origin "$name" 2>/dev/null)
-            if [[ -n "$remote_check" ]]; then
-                raw_branch_exists=1
-                break
-            fi
+        # Look for an existing branch on origin for any repo. The user's $name has
+        # already had $GROVE_BRANCH_PREFIX stripped (if present), so a branch on
+        # origin could be named either the bare $name or "$GROVE_BRANCH_PREFIX/$name".
+        # We must resolve the EXACT full ref that exists so we track the right
+        # origin/<branch> — matching against a bare pattern would spuriously match a
+        # prefixed ref and then fail with "invalid reference: origin/<bare-name>".
+        local -a branch_candidates=("$name")
+        if [[ -n "$GROVE_BRANCH_PREFIX" && "$name" != "$GROVE_BRANCH_PREFIX/"* ]]; then
+            branch_candidates+=("$GROVE_BRANCH_PREFIX/$name")
+        fi
+
+        local raw_branch_exists=0 resolved_remote_branch="" cand
+        for cand in "${branch_candidates[@]}"; do
+            for project in "${project_list[@]}"; do
+                if _grove_remote_branch_exists "$project" "$cand"; then
+                    raw_branch_exists=1
+                    resolved_remote_branch="$cand"
+                    break 2
+                fi
+            done
         done
 
         local branch_name
         if (( raw_branch_exists )); then
-            # User is tracking an existing branch — use raw name
-            branch_name="$name"
-            echo "Found existing remote branch: $name"
+            # User is tracking an existing branch — use the exact remote branch name
+            branch_name="$resolved_remote_branch"
+            echo "Found existing remote branch: $resolved_remote_branch"
         else
             # New branch — compute prefixed name with conflict check
             branch_name=$(_grove_resolve_branch_name "$workspace" "$name") || return 1
@@ -1128,22 +1154,22 @@ HELP
         mkdir -p "$workspace_root"
 
         # e. Create worktrees for each project
-        local creation_failed=0 wt_path this_remote
+        local creation_failed=0 wt_path
         for project in "${project_list[@]}"; do
             wt_path="$workspace_root/$project"
 
             if (( raw_branch_exists )); then
-                # Per-repo: track remote if that repo has it, else create new branch off base
-                this_remote=$(git -C "$projects_dir/$project" ls-remote --heads origin "$name" 2>/dev/null)
-                if [[ -n "$this_remote" ]]; then
-                    echo "  $project: tracking origin/$name"
-                    git -C "$projects_dir/$project" worktree add "$wt_path" -b "$name" "origin/$name" || {
+                # Per-repo: track remote if that repo has the exact branch, else
+                # create a new branch (under $branch_name) off the base branch.
+                if _grove_remote_branch_exists "$project" "$branch_name"; then
+                    echo "  $project: tracking origin/$branch_name"
+                    git -C "$projects_dir/$project" worktree add "$wt_path" -b "$branch_name" "origin/$branch_name" || {
                         creation_failed=1
                         break
                     }
                 else
-                    echo "  $project: creating $name off $GROVE_BASE_BRANCH"
-                    git -C "$projects_dir/$project" worktree add "$wt_path" -b "$name" $GROVE_BASE_BRANCH || {
+                    echo "  $project: creating $branch_name off $GROVE_BASE_BRANCH"
+                    git -C "$projects_dir/$project" worktree add "$wt_path" -b "$branch_name" $GROVE_BASE_BRANCH || {
                         creation_failed=1
                         break
                     }
