@@ -613,7 +613,7 @@ CONFIGURATION
 
   Post-startup hooks (per workspace, run every tmux session creation):
     GROVE_DEFAULT_POST_STARTUP_COMMAND="claude"
-    grove_post_startup_commands[fullstack]="claude --dangerously-skip-permissions"
+    grove_post_startup_commands[fullstack]="claude --permission-mode auto"
 HELP
         return 0
     elif [[ "$1" == "--home" ]]; then

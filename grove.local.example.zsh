@@ -47,7 +47,7 @@ grove_post_create_commands[frontend]="nohup zsh -c 'pnpm install' > /tmp/grove-f
 # instead of starting cold — so you pick up where you left off. The `|| claude`
 # fallback handles the first run, when there's no prior conversation to continue.
 # (Codex has an equivalent via `codex resume --last`.)
-GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
+GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --permission-mode auto --continue || claude --permission-mode auto"    # or "codex", "cursor .", etc.
 grove_post_startup_commands[fullstack]="cursor ."
 
 # Any other env vars or shell config you need

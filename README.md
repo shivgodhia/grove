@@ -109,8 +109,8 @@ Then walk through configuration:
    appropriate command (`claude`, `codex`, `cursor .`, or their custom command).
    Explain that this is a post-startup hook that runs every time a tmux session is created.
    If they chose Claude Code, recommend
-   `claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions`
-   (drop `--dangerously-skip-permissions` if they'd rather be prompted). Explain why this fits
+   `claude --permission-mode auto --continue || claude --permission-mode auto`
+   (drop `--permission-mode auto` if they'd rather be prompted on every action). Explain why this fits
    grove: a worktree outlives its tmux session — the session dies on reboot or `tmux kill-session`,
    but the worktree stays — so when they re-open that workspace, grove spins up a fresh session and
    runs the startup command again. Plain `claude` would start cold with no memory of the prior
@@ -223,7 +223,7 @@ Watch progress with `tail -f /tmp/grove-backend-install.log`.
 Per-workspace commands that run every time a new tmux session is created:
 
 ```sh
-GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --dangerously-skip-permissions --continue || claude --dangerously-skip-permissions"    # or "codex", "cursor .", etc.
+GROVE_DEFAULT_POST_STARTUP_COMMAND="claude --permission-mode auto --continue || claude --permission-mode auto"    # or "codex", "cursor .", etc.
 grove_post_startup_commands[fullstack]="cursor ."
 ```
 
